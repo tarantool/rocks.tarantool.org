@@ -20,6 +20,7 @@ S3_REGION = os.environ.get("CONFIG_REGION")
 ROCKS_UPLOAD_BUCKET = os.environ.get("ROCKS_UPLOAD_BUCKET")
 USER = os.environ.get("USER")
 PASSWORD = os.environ.get("PASSWORD")
+PORT = os.environ.get("PORT", 5000)
 
 MANIFEST_SCRIPT = 'make_manifest.lua'
 
@@ -149,4 +150,4 @@ if __name__ == '__main__':
         USER,
         PASSWORD,
     )):
-        app.run()
+        app.run(port=PORT)
