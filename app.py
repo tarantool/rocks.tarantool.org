@@ -13,10 +13,10 @@ from werkzeug.utils import cached_property
 app = Flask(__name__)
 auth = HTTPBasicAuth()
 
-S3_URL = os.environ.get("CONFIG_URL")
-S3_ACCESS_KEY = os.environ.get("CONFIG_ACCESS_KEY")
-S3_SECRET_KEY = os.environ.get("CONFIG_SECRET_KEY")
-S3_REGION = os.environ.get("CONFIG_REGION")
+S3_URL = os.environ.get("S3_URL")
+S3_ACCESS_KEY = os.environ.get("S3_ACCESS_KEY")
+S3_SECRET_KEY = os.environ.get("S3_SECRET_KEY")
+S3_REGION = os.environ.get("S3_REGION")
 ROCKS_UPLOAD_BUCKET = os.environ.get("ROCKS_UPLOAD_BUCKET")
 USER = os.environ.get("USER")
 PASSWORD = os.environ.get("PASSWORD")
@@ -44,16 +44,15 @@ def patch_manifest(manifest: str, rockspec: str, action: str = 'add') -> tuple:
 class S3View(MethodView):
     bucket = ROCKS_UPLOAD_BUCKET
     expires_in = 24 * 60 * 60
-    decorators = auth.login_required,
 
     @cached_property
     def client(self):
         return boto3.client(
             's3',
-            endpoint_url=CONFIG_URL,
-            aws_access_key_id=CONFIG_ACCESS_KEY,
-            aws_secret_access_key=CONFIG_SECRET_KEY,
-            region_name=CONFIG_REGION
+            endpoint_url=S3_URL,
+            aws_access_key_id=S3_ACCESS_KEY,
+            aws_secret_access_key=S3_SECRET_KEY,
+            region_name=S3_REGION
         )
 
     def presign_get(self, filename):
@@ -65,19 +64,6 @@ class S3View(MethodView):
             },
             ExpiresIn=self.expires_in
         )
-
-    def get(self, path='/'):
-
-        if not self.client:
-            return 'Server config does not exist'
-
-        path = path.strip('/')
-
-        if self.object_exists(path):
-            url = self.presign_get(path)
-            return redirect(url)
-
-        abort(404)
 
     def process_manifest(self, action):
         manifest = self.download_manifest()
@@ -100,11 +86,26 @@ class S3View(MethodView):
 
         return message
 
+    @auth.login_required
     def put(self):
         return self.process_manifest('add')
 
+    @auth.login_required
     def delete(self):
         return self.process_manifest('remove')
+
+    def get(self, path='/'):
+
+        if not self.client:
+            return 'Server config does not exist'
+
+        path = path.strip('/')
+
+        if self.object_exists(path):
+            url = self.presign_get(path)
+            return redirect(url)
+
+        abort(404)
 
     def object_exists(self, filename):
         if filename == '':
@@ -137,7 +138,7 @@ class S3View(MethodView):
 
 s3_view = S3View.as_view('s3_view')
 app.add_url_rule('/<path>', view_func=s3_view, methods=['GET'])
-app.add_url_rule('/', view_func=s3_view, methods=['PUT', 'DELETE'])
+app.add_url_rule('/', view_func=s3_view, methods=['GET', 'PUT', 'DELETE'])
 
 
 if __name__ == '__main__':
