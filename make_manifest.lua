@@ -211,6 +211,9 @@ function(initial_manifest, initial_rockspec, initial_action)
          msg = 'rockspec was successfully added to manifest'
       elseif action == 'remove' then
          result.repository[package][ver] = nil
+         if result.repository[package] == {} then
+            result.repository[package] = nil
+         end
          msg = 'rockspec was successfully removed from manifest'
       end
 
