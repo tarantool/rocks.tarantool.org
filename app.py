@@ -70,7 +70,7 @@ def patch_manifest(manifest: str, rockspec: str, action: str = 'add') -> tuple:
     msg, man = patch_manifest_func(manifest, rockspec, action)
 
     if not man:
-        Error('manifest patch error')
+        raise Error('manifest patch error: %s' % msg)
 
     return msg, man
 

@@ -194,6 +194,9 @@ function(initial_manifest, initial_rockspec, initial_action)
    local function patch_manifest(manifest, rockspec, action)
       local result = eval_manifest_string(manifest)
       local package, ver = get_rockspec_version(rockspec)
+      if not package or not ver then
+         return 'rockspec parsing error. Couldn\'t find package or version section', nil
+      end
       local msg
       local arch = {
          {
@@ -216,6 +219,9 @@ function(initial_manifest, initial_rockspec, initial_action)
             result.repository[package] = nil
          end
          msg = 'rockspec was successfully removed from manifest'
+      else
+         msg = 'action is not supported'
+         return msg, nil
       end
 
       local out = {buffer = {}}
