@@ -141,7 +141,8 @@ function(initial_manifest, initial_rockspec, initial_action)
    end
 
    local function get_rockspec_version(rockspec)
-      return rockspec:match('package = "(.-)"'), rockspec:match('version = "(.-)"')
+      return rockspec:match('package = "(.-)"') or rockspec:match("package = '(.-)'"),
+             rockspec:match('version = "(.-)"') or rockspec:match("version = '(.-)'")
    end
 
    local function run_string(str, env)
