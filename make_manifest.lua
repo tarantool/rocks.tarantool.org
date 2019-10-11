@@ -140,11 +140,6 @@ function(initial_manifest, initial_rockspec, initial_action)
       end
    end
 
-   local function get_rockspec_version(rockspec)
-      return rockspec:match('package = "(.-)"') or rockspec:match("package = '(.-)'"),
-             rockspec:match('version = "(.-)"') or rockspec:match("version = '(.-)'")
-   end
-
    local function run_string(str, env)
       if not str then
          return nil, err, "open"
@@ -172,8 +167,8 @@ function(initial_manifest, initial_rockspec, initial_action)
       return true, err
    end
 
-   local function eval_manifest_string(manifest)
-      assert(type(manifest) == "string")
+   local function eval_lua_string(eval_str)
+      assert(type(eval_str) == "string")
 
       local result = {}
       local globals = {}
@@ -185,14 +180,32 @@ function(initial_manifest, initial_rockspec, initial_action)
       local save_mt = getmetatable(result)
       setmetatable(result, globals_mt)
 
-      run_string(manifest, result)
+      run_string(eval_str, result)
 
       setmetatable(result, save_mt)
       return result
    end
 
+   local function dump(o)
+      if type(o) == 'table' then
+         local s = '{ '
+         for k,v in pairs(o) do
+            if type(k) ~= 'number' then k = '"'..k..'"' end
+            s = s .. '['..k..'] = ' .. dump(v) .. ','
+         end
+         return s .. '} '
+      else
+         return tostring(o)
+      end
+   end
+
+   local function get_rockspec_version(rockspec)
+      local result = eval_lua_string(rockspec)
+      return result['package'], result['version']
+   end
+
    local function patch_manifest(manifest, rockspec, action)
-      local result = eval_manifest_string(manifest)
+      local result = eval_lua_string(manifest)
       local package, ver = get_rockspec_version(rockspec)
       if not package or not ver then
          return 'rockspec parsing error. Couldn\'t find package or version section', nil

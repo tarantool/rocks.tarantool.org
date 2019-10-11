@@ -119,7 +119,7 @@ class S3View(MethodView):
                 Key=rockspec_name
             )
 
-        message, patched_manifest = patch_manifest(manifest, str(rockspec), action)
+        message, patched_manifest = patch_manifest(manifest, rockspec, action)
 
         self.client.upload_fileobj(BytesIO(str.encode(patched_manifest)), self.bucket, 'manifest')
 
