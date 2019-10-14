@@ -1,4 +1,4 @@
-function(initial_manifest, initial_rockspec, initial_action)
+function(initial_manifest, initial_rockspec, rockspec_name, initial_action)
    initial_action = initial_action or 'add'
 
    local function default_sort(a, b)
@@ -141,6 +141,7 @@ function(initial_manifest, initial_rockspec, initial_action)
    end
 
    local function run_string(str, env)
+      local err
       if not str then
          return nil, err, "open"
       end
@@ -204,12 +205,18 @@ function(initial_manifest, initial_rockspec, initial_action)
       return result['package'], result['version']
    end
 
+   local package, ver
+
    local function patch_manifest(manifest, rockspec, action)
       local result = eval_lua_string(manifest)
-      local package, ver = get_rockspec_version(rockspec)
+      package, ver = get_rockspec_version(rockspec)
       if not package or not ver then
          return 'rockspec parsing error. Couldn\'t find package or version section', nil
       end
+      if rockspec_name ~= package..'-'..ver..'.rockspec' then
+         return '.rockspec name does not match package or version ', nil
+      end
+
       local msg
       local arch = {
          {
@@ -225,8 +232,11 @@ function(initial_manifest, initial_rockspec, initial_action)
                [ver] = arch
             }
          end
-         msg = 'rockspec was successfully added to manifest'
+         msg = 'rockspec entry was successfully added to manifest'
       elseif action == 'remove' then
+         if result.repository[package] == nil then
+            return 'rockspec entry is not found in manifest', nil
+         end
          result.repository[package][ver] = nil
          if next(result.repository[package]) == nil then
             result.repository[package] = nil

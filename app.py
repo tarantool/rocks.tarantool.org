@@ -59,7 +59,7 @@ def verify_password(user, password):
     return USER == user and PASSWORD == password
 
 
-def patch_manifest(manifest: str, rockspec: str, action: str = 'add') -> tuple:
+def patch_manifest(manifest: str, rockspec: str, filename: str, action: str = 'add') -> tuple:
     lua = LuaRuntime(unpack_returned_tuples=True)
 
     with open(MANIFEST_SCRIPT, 'r') as file:
@@ -67,7 +67,7 @@ def patch_manifest(manifest: str, rockspec: str, action: str = 'add') -> tuple:
 
     patch_manifest_func = lua.eval(patch_manifest_script)
 
-    msg, man = patch_manifest_func(manifest, rockspec, action)
+    msg, man = patch_manifest_func(manifest, rockspec, filename, action)
 
     if not man:
         raise Error('manifest patch error: %s' % msg)
@@ -109,6 +109,8 @@ class S3View(MethodView):
         rockspec = rockspec_file.read()
         rockspec_name = rockspec_file.filename
 
+        message, patched_manifest = patch_manifest(manifest, rockspec, rockspec_name, action)
+
         if action == 'add':
             self.client.upload_fileobj(rockspec_file, self.bucket, rockspec_name)
         elif action == 'remove':
@@ -118,8 +120,6 @@ class S3View(MethodView):
                 Bucket=self.bucket,
                 Key=rockspec_name
             )
-
-        message, patched_manifest = patch_manifest(manifest, rockspec, action)
 
         self.client.upload_fileobj(BytesIO(str.encode(patched_manifest)), self.bucket, 'manifest')
 
@@ -186,12 +186,15 @@ app.add_url_rule('/', view_func=s3_view, methods=['GET', 'PUT', 'DELETE'])
 
 if __name__ == '__main__':
     if all((
-            S3_URL,
-            S3_ACCESS_KEY,
-            S3_SECRET_KEY,
-            S3_REGION,
-            ROCKS_UPLOAD_BUCKET,
-            USER,
-            PASSWORD,
+        S3_URL,
+        S3_ACCESS_KEY,
+        S3_SECRET_KEY,
+        S3_REGION,
+        ROCKS_UPLOAD_BUCKET,
+        USER,
+        PASSWORD,
+        TARANTOOL_IO_REDIRECT_URL,
+        PORT,
+        MANIFEST_SCRIPT,
     )):
         app.run(port=PORT)
