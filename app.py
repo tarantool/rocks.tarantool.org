@@ -112,7 +112,7 @@ class S3View(MethodView):
         message, patched_manifest = patch_manifest(manifest, rockspec, rockspec_name, action)
 
         if action == 'add':
-            self.client.upload_fileobj(rockspec_file, self.bucket, rockspec_name)
+            self.client.upload_fileobj(BytesIO(rockspec), self.bucket, rockspec_name)
         elif action == 'remove':
             if not self.object_exists(rockspec_name):
                 raise Error('rockspec {} does not exist'.format(rockspec_name))
