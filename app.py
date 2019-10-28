@@ -147,6 +147,7 @@ class S3View(MethodView):
             self.client.upload_fileobj(BytesIO(package), self.bucket, file_name)
         elif action == 'remove':
             if not self.object_exists(file_name):
+                self.client.upload_fileobj(BytesIO(str.encode(patched_manifest)), self.bucket, 'manifest')
                 raise Error('rockspec {} does not exist'.format(file_name))
             self.client.delete_object(
                 Bucket=self.bucket,
