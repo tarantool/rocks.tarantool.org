@@ -3,7 +3,7 @@ from io import BytesIO
 
 import boto3
 import botocore
-from flask import Flask, redirect, abort, request, jsonify
+from flask import Flask, redirect, request, jsonify
 from flask.views import MethodView
 from flask_httpauth import HTTPBasicAuth
 from lupa import LuaRuntime
@@ -41,6 +41,35 @@ class Error(Exception):
         return rv
 
 
+def int2byte(x):
+    return bytes((x,))
+
+
+_text_characters = (
+        b''.join(bytes((i,)) for i in range(32, 127)) +
+        b'\n\r\t\f\b')
+
+
+def istextfile(fileobj, blocksize=512):
+    """ Uses heuristics to guess whether the given file is text or binary,
+        by reading a single block of bytes from the file.
+        If more than 30% of the chars in the block are non-text, or there
+        are NUL ('\x00') bytes in the block, assume this is a binary file.
+    """
+    block = fileobj.read(blocksize)
+    if b'\x00' in block:
+        # Files with null bytes are binary
+        return False
+    elif not block:
+        # An empty file is considered a valid text file
+        return True
+
+    # Use translate's 'deletechars' argument to efficiently remove all
+    # occurrences of _text_characters from the block
+    nontext = block.translate(None, _text_characters)
+    return float(len(nontext)) / len(block) <= 0.30
+
+
 @app.errorhandler(Error)
 def handle_invalid_usage(error):
     response = jsonify(error.to_dict())
@@ -59,7 +88,7 @@ def verify_password(user, password):
     return USER == user and PASSWORD == password
 
 
-def patch_manifest(manifest: str, rockspec: str, filename: str, action: str = 'add') -> tuple:
+def patch_manifest(manifest: str, rockspec: str, filename: str, is_text: bool, action: str = 'add') -> tuple:
     lua = LuaRuntime(unpack_returned_tuples=True)
 
     with open(MANIFEST_SCRIPT, 'r') as file:
@@ -67,7 +96,7 @@ def patch_manifest(manifest: str, rockspec: str, filename: str, action: str = 'a
 
     patch_manifest_func = lua.eval(patch_manifest_script)
 
-    msg, man = patch_manifest_func(manifest, rockspec, filename, action)
+    msg, man = patch_manifest_func(manifest, rockspec, filename, is_text, action)
 
     if not man:
         raise Error('manifest patch error: %s' % msg)
@@ -101,24 +130,27 @@ class S3View(MethodView):
 
     def process_manifest(self, action):
         manifest = self.download_manifest()
-        rockspec_file = request.files.get('rockspec')
+        file = request.files.get('rockspec')
 
-        if not rockspec_file:
-            raise Error('.rockspec file was not found in request data')
+        if not file:
+            raise Error('package file was not found in request data')
 
-        rockspec = rockspec_file.read()
-        rockspec_name = rockspec_file.filename
+        is_text = istextfile(file)
+        file.seek(0)
 
-        message, patched_manifest = patch_manifest(manifest, rockspec, rockspec_name, action)
+        package = file.read()
+        file_name = file.filename
+
+        message, patched_manifest = patch_manifest(manifest, package, file_name, is_text, action)
 
         if action == 'add':
-            self.client.upload_fileobj(BytesIO(rockspec), self.bucket, rockspec_name)
+            self.client.upload_fileobj(BytesIO(package), self.bucket, file_name)
         elif action == 'remove':
-            if not self.object_exists(rockspec_name):
-                raise Error('rockspec {} does not exist'.format(rockspec_name))
+            if not self.object_exists(file_name):
+                raise Error('rockspec {} does not exist'.format(file_name))
             self.client.delete_object(
                 Bucket=self.bucket,
-                Key=rockspec_name
+                Key=file_name
             )
 
         self.client.upload_fileobj(BytesIO(str.encode(patched_manifest)), self.bucket, 'manifest')
@@ -143,11 +175,8 @@ class S3View(MethodView):
 
         path = path.strip('/')
 
-        if self.object_exists(path):
-            url = self.presign_get(path)
-            return redirect(url)
-
-        abort(404)
+        url = self.presign_get(path)
+        return redirect(url)
 
     def object_exists(self, filename):
         if filename == '':
