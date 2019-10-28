@@ -254,9 +254,7 @@ function(initial_manifest, initial_rockspec, initial_file_name, initial_is_text,
             msg = 'rock was not found in manifest'
          else
             if type(result.repository[package]) == 'table' then
-               if not next(result.repository[package]) then
-                  result.repository[package] = nil
-               elseif result.repository[package][ver] == nil then
+               if result.repository[package][ver] == nil then
                   msg = 'rock version was not found in manifest'
                elseif type(result.repository[package][ver]) == 'table' then
                   local arch_exists = false
