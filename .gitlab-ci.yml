@@ -8,6 +8,9 @@ test:
   script:
     - pip install -r requirements.txt
     - pytest
+  tags:
+    - docker
+    - mcs
 
 deploy:
   stage: deploy
@@ -16,5 +19,8 @@ deploy:
     - apt-get install -y ruby-dev
     - gem install dpl
     - dpl --provider=$HOSTING_NAME --app=$HOSTING_APP_NAME --api-key=$HOSTING_API_KEY
+  tags:
+    - docker
+    - mcs
   only:
     - master
