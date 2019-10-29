@@ -221,6 +221,7 @@ function(initial_manifest, initial_rockspec, initial_file_name, initial_is_text,
          end
          arch = 'rockspec'
       else
+         local TODO = 'TODO: FIX regexp to get any architecture'
          if file_name:match("(.+)-(%d+.%d+.%d+-%d+).(%w+).rock") then
             package, ver, arch = file_name:match("(.+)-(%d+.%d+.%d+-%d+).(%w+).rock")
          elseif file_name:match("(.+)-(scm-%d+).(%w+).rock") then
@@ -236,8 +237,8 @@ function(initial_manifest, initial_rockspec, initial_file_name, initial_is_text,
          if result.repository[package] == nil then
             result.repository[package] = {[ver] = {{ arch = arch }}}
          elseif result.repository[package][ver] == nil then
-            result.repository[package][ver] = { arch = arch }
-         elseif result.repository[package][ver][arch] ~= { arch = arch } then
+            result.repository[package][ver] = {{ arch = arch }}
+         elseif result.repository[package][ver] ~= nil then
             local arch_exists = false
             for _, v in ipairs(result.repository[package][ver]) do
                if v["arch"] == arch then
@@ -253,28 +254,26 @@ function(initial_manifest, initial_rockspec, initial_file_name, initial_is_text,
          if result.repository[package] == nil then
             msg = 'rock was not found in manifest'
          else
-            if type(result.repository[package]) == 'table' then
-               if result.repository[package][ver] == nil then
-                  msg = 'rock version was not found in manifest'
-               elseif type(result.repository[package][ver]) == 'table' then
-                  local arch_exists = false
-                  for k, v in ipairs(result.repository[package][ver]) do
-                     if v["arch"] == arch then
-                        arch_exists = true
-                        result.repository[package][ver][k] = nil
-                        if not next(result.repository[package][ver]) then
-                           result.repository[package][ver] = nil
-                        end
-                        if not next(result.repository[package]) then
-                           result.repository[package] = nil
-                        end
+            if result.repository[package][ver] == nil then
+               msg = 'rock version was not found in manifest'
+            elseif type(result.repository[package][ver]) == 'table' then
+               local arch_exists = false
+               for k, v in ipairs(result.repository[package][ver]) do
+                  if v["arch"] == arch then
+                     arch_exists = true
+                     result.repository[package][ver][k] = nil
+                     if not next(result.repository[package][ver]) then
+                        result.repository[package][ver] = nil
+                     end
+                     if not next(result.repository[package]) then
+                        result.repository[package] = nil
                      end
                   end
-                  if arch_exists then
-                     msg = 'rock was successfully removed from manifest'
-                  else
-                     msg = 'rock architecture was not found in manifest'
-                  end
+               end
+               if arch_exists then
+                  msg = 'rock was successfully removed from manifest'
+               else
+                  msg = 'rock architecture was not found in manifest'
                end
             end
          end

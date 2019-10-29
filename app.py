@@ -139,9 +139,10 @@ class S3View(MethodView):
         file.seek(0)
 
         package = file.read()
+        rockspec = package if is_text else ''
         file_name = file.filename
 
-        message, patched_manifest = patch_manifest(manifest, package, file_name, is_text, action)
+        message, patched_manifest = patch_manifest(manifest, rockspec, file_name, is_text, action)
 
         if action == 'add':
             self.client.upload_fileobj(BytesIO(package), self.bucket, file_name)
