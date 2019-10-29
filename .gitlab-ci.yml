@@ -9,18 +9,17 @@ test:
     - pip install -r requirements.txt
     - pytest
   tags:
-    - docker
+    - heroku
     - mcs
 
 deploy:
   stage: deploy
+  image: ruby:2.2
   script:
-    - apt-get update -qy
-    - apt-get install -y ruby-dev
     - gem install dpl
     - dpl --provider=$HOSTING_NAME --app=$HOSTING_APP_NAME --api-key=$HOSTING_API_KEY
   tags:
-    - docker
+    - heroku
     - mcs
   only:
     - master
