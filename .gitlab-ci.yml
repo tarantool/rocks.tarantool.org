@@ -9,7 +9,7 @@ test:
     - pip install -r requirements.txt
     - pytest
   tags:
-    - heroku
+    - docker
     - mcs
 
 deploy:
@@ -19,7 +19,7 @@ deploy:
     - gem install dpl
     - dpl --provider=$HOSTING_NAME --app=$HOSTING_APP_NAME --api-key=$HOSTING_API_KEY
   tags:
-    - heroku
+    - docker
     - mcs
   only:
     - master
