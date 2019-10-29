@@ -1,0 +1,30 @@
+commands = {}
+modules = {}
+repository = {
+   argon2 = {
+      ["3.0.1-1"] = {
+         {
+            arch = "rockspec"
+         }
+      }
+   },
+   ["avro-schema"] = {
+      ["2.2.1-2"] = {
+         {
+            arch = "rockspec"
+         }
+      },
+      ["2.2.1-5"] = {
+         {
+            arch = "rockspec"
+         }
+      }
+   },
+   ["tarantool-curl"] = {
+      ["2.3.1-1"] = {
+         {
+            arch = "rockspec"
+         }
+      }
+   }
+}

@@ -205,11 +205,10 @@ function(initial_manifest, initial_rockspec, initial_file_name, initial_is_text,
       return result['package'], result['version']
    end
 
-   local package, ver
 
    local function patch_manifest(manifest, rock, file_name, is_text, action)
       local result = eval_lua_string(manifest)
-      local msg, arch
+      local msg, arch, package, ver
 
       if is_text then
          package, ver = get_rockspec_version(rock)
@@ -221,16 +220,13 @@ function(initial_manifest, initial_rockspec, initial_file_name, initial_is_text,
          end
          arch = 'rockspec'
       else
-         local TODO = 'TODO: FIX regexp to get any architecture'
          if file_name:match("(.+)-(%d+.%d+.%d+-%d+).(%w+).rock") then
-            package, ver, arch = file_name:match("(.+)-(%d+.%d+.%d+-%d+).(%w+).rock")
-         elseif file_name:match("(.+)-(scm-%d+).(%w+).rock") then
-            package, ver, arch = file_name:match("(.+)-(scm-%d+).(%w+).rock")
+            package, ver, arch = file_name:match('(.+)-(.-%-%d)%.(%w+).rock')
          end
       end
 
       if not package or not ver or not arch then
-         return 'Parse error: wrong file name ', nil
+         return 'Parse error: incorrect file name ', nil
       end
 
       if action == 'add' then
