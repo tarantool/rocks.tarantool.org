@@ -24,23 +24,6 @@ TARANTOOL_IO_REDIRECT_URL = "https://www.tarantool.io/en/download/rocks"
 
 MANIFEST_SCRIPT = 'make_manifest.lua'
 
-
-class Error(Exception):
-    status_code = 400
-
-    def __init__(self, message, status_code=None, payload=None):
-        Exception.__init__(self)
-        self.message = message
-        if status_code is not None:
-            self.status_code = status_code
-        self.payload = payload
-
-    def to_dict(self):
-        rv = dict(self.payload or ())
-        rv['message'] = self.message
-        return rv
-
-
 def int2byte(x):
     return bytes((x,))
 
@@ -70,7 +53,7 @@ def istextfile(fileobj, blocksize=512):
     return float(len(nontext)) / len(block) <= 0.30
 
 
-@app.errorhandler(Error)
+@app.errorhandler(RuntimeError)
 def handle_invalid_usage(error):
     response = jsonify(error.to_dict())
     response.status_code = error.status_code
@@ -88,7 +71,7 @@ def verify_password(user, password):
     return USER == user and PASSWORD == password
 
 
-def patch_manifest(manifest: str, rockspec: str, filename: str, is_text: bool, action: str = 'add') -> tuple:
+def patch_manifest(manifest: str, filename: str, rock_content: str = '', action: str = 'add') -> tuple:
     lua = LuaRuntime(unpack_returned_tuples=True)
 
     with open(MANIFEST_SCRIPT, 'r') as file:
@@ -96,12 +79,12 @@ def patch_manifest(manifest: str, rockspec: str, filename: str, is_text: bool, a
 
     patch_manifest_func = lua.eval(patch_manifest_script)
 
-    msg, man = patch_manifest_func(manifest, rockspec, filename, is_text, action)
+    msg, manifest = patch_manifest_func(manifest, filename, rock_content, action)
 
-    if not man:
-        raise Error('manifest patch error: %s' % msg)
+    if not manifest:
+        raise RuntimeError(msg)
 
-    return msg, man
+    return msg, manifest
 
 
 class S3View(MethodView):
@@ -133,7 +116,7 @@ class S3View(MethodView):
         file = request.files.get('rockspec')
 
         if not file:
-            raise Error('package file was not found in request data')
+            raise RuntimeError('package file was not found in request data')
 
         is_text = istextfile(file)
         file.seek(0)
@@ -142,14 +125,15 @@ class S3View(MethodView):
         rockspec = package if is_text else ''
         file_name = file.filename
 
-        message, patched_manifest = patch_manifest(manifest, rockspec, file_name, is_text, action)
+        message, patched_manifest = patch_manifest(manifest, file_name,
+            rock_content=rockspec, action=action)
 
         if action == 'add':
             self.client.upload_fileobj(BytesIO(package), self.bucket, file_name)
         elif action == 'remove':
             if not self.object_exists(file_name):
                 self.client.upload_fileobj(BytesIO(str.encode(patched_manifest)), self.bucket, 'manifest')
-                raise Error('rockspec {} does not exist'.format(file_name))
+                raise RuntimeError('rockspec {} does not exist'.format(file_name))
             self.client.delete_object(
                 Bucket=self.bucket,
                 Key=file_name
@@ -204,7 +188,7 @@ class S3View(MethodView):
 
     def download_manifest(self):
         if not self.object_exists('manifest'):
-            raise Error('manifest file was not found in the bucket')
+            raise RuntimeError('manifest file was not found in the bucket')
         manifest_io = BytesIO()
         self.client.download_fileobj(self.bucket, 'manifest', manifest_io)
 
