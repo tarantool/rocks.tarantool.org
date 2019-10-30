@@ -1,3 +1,4 @@
+import json
 import os
 from io import BytesIO
 
@@ -53,7 +54,24 @@ def istextfile(fileobj, blocksize=512):
     return float(len(nontext)) / len(block) <= 0.30
 
 
-@app.errorhandler(RuntimeError)
+class InvalidUsage(RuntimeError):
+    status_code = 400
+
+    def __init__(self, message, status_code=None):
+        RuntimeError.__init__(self)
+        self.message = message
+        if status_code is not None:
+            self.status_code = status_code
+
+    def to_dict(self):
+        rv = {'message': self.message}
+        return rv
+
+    def __str__(self):
+        return self.message
+
+
+@app.errorhandler(InvalidUsage)
 def handle_invalid_usage(error):
     response = jsonify(error.to_dict())
     response.status_code = error.status_code
@@ -82,7 +100,7 @@ def patch_manifest(manifest: str, filename: str, rock_content: str = '', action:
     msg, manifest = patch_manifest_func(manifest, filename, rock_content, action)
 
     if not manifest:
-        raise RuntimeError(msg)
+        raise InvalidUsage(msg)
 
     return msg, manifest
 
@@ -111,12 +129,13 @@ class S3View(MethodView):
             ExpiresIn=self.expires_in
         )
 
-    def process_manifest(self, action):
+    @auth.login_required
+    def put(self):
         manifest = self.download_manifest()
         file = request.files.get('rockspec')
 
         if not file:
-            raise RuntimeError('package file was not found in request data')
+            raise InvalidUsage('package file was not found in request data')
 
         is_text = istextfile(file)
         file.seek(0)
@@ -126,30 +145,44 @@ class S3View(MethodView):
         file_name = file.filename
 
         message, patched_manifest = patch_manifest(manifest, file_name,
-            rock_content=rockspec, action=action)
+                                                   rock_content=rockspec, action='add')
 
-        if action == 'add':
-            self.client.upload_fileobj(BytesIO(package), self.bucket, file_name)
-        elif action == 'remove':
-            if not self.object_exists(file_name):
-                self.client.upload_fileobj(BytesIO(str.encode(patched_manifest)), self.bucket, 'manifest')
-                raise RuntimeError('rockspec {} does not exist'.format(file_name))
-            self.client.delete_object(
-                Bucket=self.bucket,
-                Key=file_name
-            )
+        self.client.upload_fileobj(BytesIO(package), self.bucket, file_name)
 
         self.client.upload_fileobj(BytesIO(str.encode(patched_manifest)), self.bucket, 'manifest')
 
         return response_message(message)
 
     @auth.login_required
-    def put(self):
-        return self.process_manifest('add')
-
-    @auth.login_required
     def delete(self):
-        return self.process_manifest('remove')
+        manifest = self.download_manifest()
+
+        if not request.content_type == 'application/json':
+            return response_message('Rocks server supports application/json only')
+
+        try:
+            payload = json.loads(request.data.decode('utf-8'))
+        except json.JSONDecodeError as e:
+            return response_message(e)
+
+        file_name = payload.get('file_name')
+
+        if not file_name:
+            return response_message('file_name to delete was not found')
+
+        message, patched_manifest = patch_manifest(manifest, file_name, '', 'remove')
+
+        if not self.object_exists(file_name):
+            self.client.upload_fileobj(BytesIO(str.encode(patched_manifest)), self.bucket, 'manifest')
+            raise InvalidUsage('rockspec {} does not exist'.format(file_name))
+        self.client.delete_object(
+            Bucket=self.bucket,
+            Key=file_name
+        )
+
+        self.client.upload_fileobj(BytesIO(str.encode(patched_manifest)), self.bucket, 'manifest')
+
+        return response_message(message)
 
     def get(self, path='/'):
 
@@ -188,7 +221,7 @@ class S3View(MethodView):
 
     def download_manifest(self):
         if not self.object_exists('manifest'):
-            raise RuntimeError('manifest file was not found in the bucket')
+            raise InvalidUsage('manifest file was not found in the bucket')
         manifest_io = BytesIO()
         self.client.download_fileobj(self.bucket, 'manifest', manifest_io)
 
