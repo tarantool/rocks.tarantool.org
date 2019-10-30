@@ -1,73 +1,256 @@
 import os
 import sys
+import pytest
 
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
 from app import patch_manifest  # noqa
+from textwrap import dedent
+
+def test_override():
+    manifest = """
+        commands = {}
+        modules = {}
+        repository = {}
+    """
+
+    manifest_expected = dedent("""\
+        commands = {}
+        modules = {}
+        repository = {
+           cartridge = {
+              ["scm-1"] = {
+                 {
+                    arch = "all"
+                 }
+              }
+           }
+        }
+    """)
+
+    msg, manifest = patch_manifest(manifest, 'cartridge-scm-1.all.rock')
+    assert msg == "rock entry was successfully added to manifest"
+    assert manifest == manifest_expected
+
+    msg, manifest = patch_manifest(manifest, 'cartridge-scm-1.all.rock')
+    assert msg == "rock entry was successfully added to manifest"
+    assert manifest == manifest_expected
+
+def test_multiarch():
+    manifest = """
+        commands = {}
+        modules = {}
+        repository = {}
+    """
+    manifest_expected = dedent("""\
+        commands = {}
+        modules = {}
+        repository = {
+           cartridge = {
+              ["6.6.6-1"] = {
+                 {
+                    arch = "src"
+                 },
+                 {
+                    arch = "all"
+                 }
+              }
+           }
+        }
+    """)
+
+    msg, manifest = patch_manifest(manifest, 'cartridge-6.6.6-1.src.rock')
+    assert msg == "rock entry was successfully added to manifest"
+    msg, manifest = patch_manifest(manifest, 'cartridge-6.6.6-1.all.rock')
+    assert msg == "rock entry was successfully added to manifest"
+
+    assert manifest == manifest_expected
+
+def test_multiversion():
+    manifest = """
+        commands = {}
+        modules = {}
+        repository = {}
+    """
+    manifest_expected = dedent("""\
+        commands = {}
+        modules = {}
+        repository = {
+           cartridge = {
+              ["6.6.6-1"] = {
+                 {
+                    arch = "all"
+                 }
+              },
+              ["dev-1"] = {
+                 {
+                    arch = "all"
+                 }
+              }
+           }
+        }
+    """)
+
+    msg, manifest = patch_manifest(manifest, 'cartridge-6.6.6-1.all.rock')
+    assert msg == "rock entry was successfully added to manifest"
+    msg, manifest = patch_manifest(manifest, 'cartridge-dev-1.all.rock')
+    assert msg == "rock entry was successfully added to manifest"
+
+    assert manifest == manifest_expected
+
+def test_rockspec():
+    manifest = """
+        commands = {}
+        modules = {}
+        repository = {}
+    """
+
+    manifest_expected = dedent("""\
+        commands = {}
+        modules = {}
+        repository = {
+           ["foo-bar"] = {
+              ["5.4.3.2-1"] = {
+                 {
+                    arch = "rockspec"
+                 }
+              },
+              ["dev-1"] = {
+                 {
+                    arch = "rockspec"
+                 }
+              }
+           }
+        }
+    """)
+
+    rockspec = """\
+        package = 'foo-bar'
+        version = 'dev-1'
+    """
+    msg, manifest = patch_manifest(manifest, 'foo-bar-dev-1.rockspec',
+        rock_content = rockspec)
+    assert msg == "rock entry was successfully added to manifest"
+
+    rockspec = """\
+        package = 'foo-bar'
+        version = '5.4.3.2-1'
+    """
+    msg, manifest = patch_manifest(manifest, 'foo-bar-5.4.3.2-1.rockspec',
+        rock_content = rockspec)
+    assert msg == "rock entry was successfully added to manifest"
+
+    assert manifest == manifest_expected
+
+    with pytest.raises(Exception) as err:
+        patch_manifest(manifest, 'foo-bar-dev-2.rockspec', rock_content = rockspec)
+    assert err.value.args[0] == "rockspec name does not match package or version"
+
+    with pytest.raises(Exception) as err:
+        patch_manifest(manifest, 'foo-baz-dev-1.rockspec', rock_content = rockspec)
+    assert err.value.args[0] == "rockspec name does not match package or version"
 
 
-def test_add_all():
-    with open('tests/manifest') as file:
-        _, rock = patch_manifest(file.read(), ' ', 'cartridge-1.1.1-1.all.rock', False, 'add')
+def test_multipackage():
+    manifest = """
+        commands = {}
+        modules = {}
+        repository = {}
+    """
 
-    with open('tests/manifest_all') as file:
-        assert rock == file.read()
+    rockspec = """\
+        package = 'fizz-buzz'
+        version = 'dev-2'
+    """
+    msg, manifest = patch_manifest(manifest, 'fizz-buzz-dev-2.rockspec',
+        rock_content = rockspec)
+    assert msg == "rock entry was successfully added to manifest"
 
+    rockspec = """\
+        package = 'fizz-buzz'
+        version = '0.0.0-2'
+    """
+    msg, manifest = patch_manifest(manifest, 'fizz-buzz-0.0.0-2.rockspec',
+        rock_content = rockspec)
+    assert msg == "rock entry was successfully added to manifest"
 
-def test_add_existed_all():
-    with open('tests/manifest_all') as file:
-        _, rock = patch_manifest(file.read(), ' ', 'cartridge-1.1.1-1.all.rock', False, 'add')
+    msg, manifest = patch_manifest(manifest, 'mymodule-0.0.0-2.linux-x86_64.rock')
+    assert msg == "rock entry was successfully added to manifest"
 
-    with open('tests/manifest_all') as file:
-        assert rock == file.read()
+    assert manifest == dedent("""\
+        commands = {}
+        modules = {}
+        repository = {
+           ["fizz-buzz"] = {
+              ["0.0.0-2"] = {
+                 {
+                    arch = "rockspec"
+                 }
+              },
+              ["dev-2"] = {
+                 {
+                    arch = "rockspec"
+                 }
+              }
+           },
+           mymodule = {
+              ["0.0.0-2"] = {
+                 {
+                    arch = "linux-x86_64"
+                 }
+              }
+           }
+        }
+    """)
 
+def test_remove():
+    manifest = dedent("""\
+        commands = {}
+        modules = {}
+        repository = {
+           ["foo-bar"] = {
+              ["3.2-1"] = {
+                 {
+                    arch = "rockspec"
+                 }
+              },
+              ["dev-1"] = {
+                 {
+                    arch = "rockspec"
+                 }
+              }
+           }
+        }
+    """)
 
-def test_add_src():
-    with open('tests/manifest_all') as file:
-        _, rock = patch_manifest(file.read(), ' ', 'cartridge-1.1.1-1.src.rock', False, 'add')
+    manifest_expected = dedent("""\
+        commands = {}
+        modules = {}
+        repository = {
+           ["foo-bar"] = {
+              ["dev-1"] = {
+                 {
+                    arch = "rockspec"
+                 }
+              }
+           }
+        }
+    """)
 
-    with open('tests/manifest_all_src') as file:
-        assert rock == file.read()
+    msg, manifest = patch_manifest(manifest, 'foo-bar-3.2-1.rockspec',
+        action = 'remove')
+    assert msg == "rock was successfully removed from manifest"
 
+    with pytest.raises(Exception) as err:
+        patch_manifest(manifest, 'foo-bar-dev-1.all.rock', action = 'remove')
+    assert err.value.args[0] == "rock architecture was not found in manifest"
 
-def test_add_x86():
-    with open('tests/manifest_all_src') as file:
-        _, rock = patch_manifest(file.read(), ' ', 'tarantool-curl-2.3.1-1.x86.rock', False, 'add')
+    with pytest.raises(Exception) as err:
+        patch_manifest(manifest, 'foo-bar-3.2-1.rockspec', action = 'remove')
+    assert err.value.args[0] == "rock version was not found in manifest"
 
-    with open('tests/manifest_all_src_x86') as file:
-        assert rock == file.read()
+    with pytest.raises(Exception) as err:
+        patch_manifest(manifest, 'foo-baz-dev-1.rockspec', action = 'remove')
+    assert err.value.args[0] == "rock was not found in manifest"
 
-
-def test_add_version():
-    with open('tests/avro-schema-2.2.1-5.rockspec') as file:
-        rockspec = file.read()
-
-    with open('tests/manifest') as file:
-        _, rock = patch_manifest(file.read(), rockspec, 'avro-schema-2.2.1-5.rockspec', True, 'add')
-
-    with open('tests/manifest_version') as file:
-        assert rock == file.read()
-
-
-def test_removed_version():
-    with open('tests/manifest_version') as file:
-        _, rock = patch_manifest(file.read(), '', 'cartridge-1.1.0-1.all.rock', False, 'remove')
-
-    with open('tests/manifest_removed_version') as file:
-        assert rock == file.read()
-
-
-def test_remove_all():
-    with open('tests/manifest_all') as file:
-        _, rock = patch_manifest(file.read(), ' ', 'cartridge-1.1.1-1.all.rock', False, 'remove')
-
-    with open('tests/manifest') as file:
-        assert rock == file.read()
-
-
-def test_remove_non_existed():
-    with open('tests/manifest') as file:
-        _, rock = patch_manifest(file.read(), ' ', 'cartridge-1.1.1-1.all.rock', False, 'remove')
-
-    with open('tests/manifest') as file:
-        assert rock == file.read()
+    assert manifest == manifest_expected

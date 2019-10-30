@@ -1,5 +1,7 @@
-function(initial_manifest, initial_rockspec, initial_file_name, initial_is_text, initial_action)
-   initial_action = initial_action or 'add'
+function(manifest, filename, rock_content, action)
+   if action == nil then
+      action = 'add'
+   end
 
    local function default_sort(a, b)
       local ta = type(a)
@@ -206,30 +208,28 @@ function(initial_manifest, initial_rockspec, initial_file_name, initial_is_text,
    end
 
 
-   local function patch_manifest(manifest, rock, file_name, is_text, action)
+   local function patch_manifest(manifest, filename, rock_content, action)
       local result = eval_lua_string(manifest)
-      local msg, arch, package, ver
+      local msg, package, ver, arch
 
-      if is_text then
-         package, ver = get_rockspec_version(rock)
-         if not package or not ver then
-            return 'rockspec parsing error. Couldn\'t find package or version section', nil
-         end
-         if file_name ~= package..'-'..ver..'.rockspec' then
-            return '.rockspec name does not match package or version ', nil
-         end
-         arch = 'rockspec'
-      else
-         if file_name:match("(.+)-(%d+.%d+.%d+-%d+).(%w+).rock") then
-            package, ver, arch = file_name:match('(.+)-(.-%-%d)%.(%w+).rock')
-         end
+      if filename:match('.rockspec$') then
+         package, ver, arch = filename:match('^(.+)-(.-%-%d)%.(rockspec)$')
+      elseif filename:match('.rock$') then
+         package, ver, arch = filename:match('^(.+)-(.-%-%d)%.([^%.]+).rock$')
       end
 
-      if not package or not ver or not arch then
-         return 'Parse error: incorrect file name ', nil
+      if not package or not ver then
+         return "filename parsing error", nil
       end
 
       if action == 'add' then
+         if arch == 'rockspec' then
+            local package, ver = get_rockspec_version(rock_content)
+            if filename ~= package..'-'..ver..'.rockspec' then
+               return 'rockspec name does not match package or version', nil
+            end
+         end
+
          if result.repository[package] == nil then
             result.repository[package] = {[ver] = {{ arch = arch }}}
          elseif result.repository[package][ver] == nil then
@@ -248,10 +248,10 @@ function(initial_manifest, initial_rockspec, initial_file_name, initial_is_text,
          msg = 'rock entry was successfully added to manifest'
       elseif action == 'remove' then
          if result.repository[package] == nil then
-            msg = 'rock was not found in manifest'
+            return 'rock was not found in manifest', nil
          else
             if result.repository[package][ver] == nil then
-               msg = 'rock version was not found in manifest'
+               return 'rock version was not found in manifest', nil
             elseif type(result.repository[package][ver]) == 'table' then
                local arch_exists = false
                for k, v in ipairs(result.repository[package][ver]) do
@@ -269,13 +269,12 @@ function(initial_manifest, initial_rockspec, initial_file_name, initial_is_text,
                if arch_exists then
                   msg = 'rock was successfully removed from manifest'
                else
-                  msg = 'rock architecture was not found in manifest'
+                  return 'rock architecture was not found in manifest', nil
                end
             end
          end
       else
-         msg = 'action is not supported'
-         return msg, nil
+         return 'action is not supported', nil
       end
 
       local out = {buffer = {}}
@@ -285,5 +284,5 @@ function(initial_manifest, initial_rockspec, initial_file_name, initial_is_text,
       return msg, table.concat(out.buffer)
    end
 
-   return patch_manifest(initial_manifest, initial_rockspec, initial_file_name, initial_is_text, initial_action)
+   return patch_manifest(manifest, filename, rock_content, action)
 end
