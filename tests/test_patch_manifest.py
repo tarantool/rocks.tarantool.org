@@ -4,7 +4,7 @@ import pytest
 
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
-from app import patch_manifest  # noqa
+from app import patch_manifest, InvalidUsage  # noqa
 from textwrap import dedent
 
 def test_override():
@@ -142,13 +142,13 @@ def test_rockspec():
 
     assert manifest == manifest_expected
 
-    with pytest.raises(Exception) as err:
+    with pytest.raises(InvalidUsage) as err:
         patch_manifest(manifest, 'foo-bar-dev-2.rockspec', rock_content = rockspec)
-    assert err.value.args[0] == "rockspec name does not match package or version"
+    assert err.value.message == "rockspec name does not match package or version"
 
-    with pytest.raises(Exception) as err:
+    with pytest.raises(InvalidUsage) as err:
         patch_manifest(manifest, 'foo-baz-dev-1.rockspec', rock_content = rockspec)
-    assert err.value.args[0] == "rockspec name does not match package or version"
+    assert err.value.message == "rockspec name does not match package or version"
 
 
 def test_multipackage():
@@ -241,16 +241,20 @@ def test_remove():
         action = 'remove')
     assert msg == "rock was successfully removed from manifest"
 
-    with pytest.raises(Exception) as err:
+    with pytest.raises(InvalidUsage) as err:
         patch_manifest(manifest, 'foo-bar-dev-1.all.rock', action = 'remove')
-    assert err.value.args[0] == "rock architecture was not found in manifest"
+    assert err.value.message == "rock architecture was not found in manifest"
 
-    with pytest.raises(Exception) as err:
+    with pytest.raises(InvalidUsage) as err:
         patch_manifest(manifest, 'foo-bar-3.2-1.rockspec', action = 'remove')
-    assert err.value.args[0] == "rock version was not found in manifest"
+    assert err.value.message == "rock version was not found in manifest"
 
-    with pytest.raises(Exception) as err:
+    with pytest.raises(InvalidUsage) as err:
         patch_manifest(manifest, 'foo-baz-dev-1.rockspec', action = 'remove')
-    assert err.value.args[0] == "rock was not found in manifest"
+    assert err.value.message == "rock was not found in manifest"
+
+    with pytest.raises(InvalidUsage) as err:
+        patch_manifest(manifest, 'foo.rockspec', action = 'remove')
+    assert err.value.message == "filename parsing error"
 
     assert manifest == manifest_expected
