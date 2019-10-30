@@ -18,13 +18,13 @@ def test_override():
         commands = {}
         modules = {}
         repository = {
-           cartridge = {
-              ["scm-1"] = {
-                 {
-                    arch = "all"
-                 }
-              }
-           }
+            cartridge = {
+                ["scm-1"] = {
+                    {
+                        arch = "all"
+                    }
+                }
+            }
         }
     """)
 
@@ -46,16 +46,16 @@ def test_multiarch():
         commands = {}
         modules = {}
         repository = {
-           cartridge = {
-              ["6.6.6-1"] = {
-                 {
-                    arch = "src"
-                 },
-                 {
-                    arch = "all"
-                 }
-              }
-           }
+            cartridge = {
+                ["6.6.6-1"] = {
+                    {
+                        arch = "src"
+                    },
+                    {
+                        arch = "all"
+                    }
+                }
+            }
         }
     """)
 
@@ -76,18 +76,18 @@ def test_multiversion():
         commands = {}
         modules = {}
         repository = {
-           cartridge = {
-              ["6.6.6-1"] = {
-                 {
-                    arch = "all"
-                 }
-              },
-              ["dev-1"] = {
-                 {
-                    arch = "all"
-                 }
-              }
-           }
+            cartridge = {
+                ["6.6.6-1"] = {
+                    {
+                        arch = "all"
+                    }
+                },
+                ["dev-1"] = {
+                    {
+                        arch = "all"
+                    }
+                }
+            }
         }
     """)
 
@@ -109,18 +109,18 @@ def test_rockspec():
         commands = {}
         modules = {}
         repository = {
-           ["foo-bar"] = {
-              ["5.4.3.2-1"] = {
-                 {
-                    arch = "rockspec"
-                 }
-              },
-              ["dev-1"] = {
-                 {
-                    arch = "rockspec"
-                 }
-              }
-           }
+            ["foo-bar"] = {
+                ["5.4.3.2-1"] = {
+                    {
+                        arch = "rockspec"
+                    }
+                },
+                ["dev-1"] = {
+                    {
+                        arch = "rockspec"
+                    }
+                }
+            }
         }
     """)
 
@@ -181,25 +181,25 @@ def test_multipackage():
         commands = {}
         modules = {}
         repository = {
-           ["fizz-buzz"] = {
-              ["0.0.0-2"] = {
-                 {
-                    arch = "rockspec"
-                 }
-              },
-              ["dev-2"] = {
-                 {
-                    arch = "rockspec"
-                 }
-              }
-           },
-           mymodule = {
-              ["0.0.0-2"] = {
-                 {
-                    arch = "linux-x86_64"
-                 }
-              }
-           }
+            ["fizz-buzz"] = {
+                ["0.0.0-2"] = {
+                    {
+                        arch = "rockspec"
+                    }
+                },
+                ["dev-2"] = {
+                    {
+                        arch = "rockspec"
+                    }
+                }
+            },
+            mymodule = {
+                ["0.0.0-2"] = {
+                    {
+                        arch = "linux-x86_64"
+                    }
+                }
+            }
         }
     """)
 
@@ -208,18 +208,18 @@ def test_remove():
         commands = {}
         modules = {}
         repository = {
-           ["foo-bar"] = {
-              ["3.2-1"] = {
-                 {
-                    arch = "rockspec"
-                 }
-              },
-              ["dev-1"] = {
-                 {
-                    arch = "rockspec"
-                 }
-              }
-           }
+            ["foo-bar"] = {
+                ["3.2-1"] = {
+                    {
+                        arch = "rockspec"
+                    }
+                },
+                ["dev-1"] = {
+                    {
+                        arch = "rockspec"
+                    }
+                }
+            }
         }
     """)
 
@@ -227,13 +227,13 @@ def test_remove():
         commands = {}
         modules = {}
         repository = {
-           ["foo-bar"] = {
-              ["dev-1"] = {
-                 {
-                    arch = "rockspec"
-                 }
-              }
-           }
+            ["foo-bar"] = {
+                ["dev-1"] = {
+                    {
+                        arch = "rockspec"
+                    }
+                }
+            }
         }
     """)
 

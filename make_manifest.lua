@@ -95,7 +95,7 @@ function(manifest, filename, rock_content, action)
    write_table = function(out, tbl, level, field_order)
       out:write("{")
       local sep = "\n"
-      local indentation = "   "
+      local indentation = "    "
       local indent = true
       local i = 1
       for k, v, sub_order in sorted_pairs(tbl, field_order) do
