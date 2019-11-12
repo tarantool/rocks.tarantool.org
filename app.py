@@ -78,9 +78,9 @@ def handle_invalid_usage(error):
     return response
 
 
-def response_message(message):
+def response_message(message, status=201):
     response = jsonify({'message': message})
-    response.status_code = 201
+    response.status_code = status
     return response
 
 
@@ -158,17 +158,17 @@ class S3View(MethodView):
         manifest = self.download_manifest()
 
         if not request.content_type == 'application/json':
-            return response_message('Rocks server supports application/json only')
+            return response_message('Rocks server supports application/json only', 400)
 
         try:
             payload = json.loads(request.data.decode('utf-8'))
-        except json.JSONDecodeError as e:
-            return response_message(e)
+        except json.JSONDecodeError:
+            return response_message("could not decode json form request", 400)
 
         file_name = payload.get('file_name')
 
         if not file_name:
-            return response_message('file_name to delete was not found')
+            return response_message('file_name to delete was not found', 400)
 
         message, patched_manifest = patch_manifest(manifest, file_name, '', 'remove')
 
@@ -233,16 +233,4 @@ app.add_url_rule('/<path>', view_func=s3_view, methods=['GET'])
 app.add_url_rule('/', view_func=s3_view, methods=['GET', 'PUT', 'DELETE'])
 
 if __name__ == '__main__':
-    if all((
-        S3_URL,
-        S3_ACCESS_KEY,
-        S3_SECRET_KEY,
-        S3_REGION,
-        ROCKS_UPLOAD_BUCKET,
-        USER,
-        PASSWORD,
-        TARANTOOL_IO_REDIRECT_URL,
-        PORT,
-        MANIFEST_SCRIPT,
-    )):
-        app.run(port=PORT)
+    app.run(port=PORT)
