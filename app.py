@@ -14,6 +14,7 @@ app = Flask(__name__)
 auth = HTTPBasicAuth()
 
 S3_URL = os.environ.get("S3_URL")
+S3_ROCKS_FOLDER = os.environ.get("S3_ROCKS_FOLDER", '')
 S3_ACCESS_KEY = os.environ.get("S3_ACCESS_KEY")
 S3_SECRET_KEY = os.environ.get("S3_SECRET_KEY")
 S3_REGION = os.environ.get("S3_REGION")
@@ -124,7 +125,7 @@ class S3View(MethodView):
             ClientMethod='get_object',
             Params={
                 'Bucket': self.bucket,
-                'Key': filename,
+                'Key': f'{S3_ROCKS_FOLDER}{filename}',
             },
             ExpiresIn=self.expires_in
         )
@@ -147,9 +148,9 @@ class S3View(MethodView):
         message, patched_manifest = patch_manifest(manifest, file_name,
                                                    rock_content=rockspec, action='add')
 
-        self.client.upload_fileobj(BytesIO(package), self.bucket, file_name)
+        self.client.upload_fileobj(BytesIO(package), self.bucket, f'{S3_ROCKS_FOLDER}{file_name}')
 
-        self.client.upload_fileobj(BytesIO(str.encode(patched_manifest)), self.bucket, 'manifest')
+        self.client.upload_fileobj(BytesIO(str.encode(patched_manifest)), self.bucket, f'{S3_ROCKS_FOLDER}manifest')
 
         return response_message(message)
 
@@ -173,14 +174,14 @@ class S3View(MethodView):
         message, patched_manifest = patch_manifest(manifest, file_name, '', 'remove')
 
         if not self.object_exists(file_name):
-            self.client.upload_fileobj(BytesIO(str.encode(patched_manifest)), self.bucket, 'manifest')
+            self.client.upload_fileobj(BytesIO(str.encode(patched_manifest)), self.bucket, f'{S3_ROCKS_FOLDER}manifest')
             raise InvalidUsage('rockspec {} does not exist'.format(file_name))
         self.client.delete_object(
             Bucket=self.bucket,
-            Key=file_name
+            Key=f'{S3_ROCKS_FOLDER}{file_name}'
         )
 
-        self.client.upload_fileobj(BytesIO(str.encode(patched_manifest)), self.bucket, 'manifest')
+        self.client.upload_fileobj(BytesIO(str.encode(patched_manifest)), self.bucket, f'{S3_ROCKS_FOLDER}manifest')
 
         return response_message(message)
 
@@ -204,7 +205,7 @@ class S3View(MethodView):
         try:
             obj = self.client.get_object(
                 Bucket=self.bucket,
-                Key=filename
+                Key=f'{S3_ROCKS_FOLDER}{filename}'
             )
         except botocore.exceptions.ClientError as ex:
             if ex.response['Error']['Code'] == 'NoSuchKey':
@@ -223,7 +224,7 @@ class S3View(MethodView):
         if not self.object_exists('manifest'):
             raise InvalidUsage('manifest file was not found in the bucket')
         manifest_io = BytesIO()
-        self.client.download_fileobj(self.bucket, 'manifest', manifest_io)
+        self.client.download_fileobj(self.bucket, f'{S3_ROCKS_FOLDER}manifest', manifest_io)
 
         return manifest_io.getvalue().decode('utf-8')
 
