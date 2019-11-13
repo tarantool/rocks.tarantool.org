@@ -10,16 +10,19 @@ test:
     - pytest
   tags:
     - docker
-    - mcs
 
 deploy:
   stage: deploy
   image: ruby:2.2
-  script:
-    - gem install dpl
-    - dpl --provider=$HOSTING_NAME --app=$HOSTING_APP_NAME --api-key=$HOSTING_API_KEY
-  tags:
-    - docker
-    - mcs
+  environment:
+    name: production
+    url: https://tarantool-rocks.herokuapp.com
+  when: manual
   only:
     - master
+  before_script:
+    - gem install dpl
+  script:
+    - dpl --provider=heroku --app=tarantool-rocks --api-key=$HOSTING_API_KEY
+  tags:
+    - docker
