@@ -212,6 +212,12 @@ function(manifest, filename, rock_content, action)
       local result = eval_lua_string(manifest)
       local msg, package, ver, arch
 
+      local function tablelength(T)
+         local count = 0
+         for _ in pairs(T) do count = count + 1 end
+         return count
+      end
+
       if filename:match('.rockspec$') then
          package, ver, arch = filename:match('^(.+)-(.-%-%d)%.(rockspec)$')
       elseif filename:match('.rock$') then
@@ -257,7 +263,11 @@ function(manifest, filename, rock_content, action)
                for k, v in ipairs(result.repository[package][ver]) do
                   if v["arch"] == arch then
                      arch_exists = true
-                     result.repository[package][ver][k] = nil
+                     if tablelength(result.repository[package][ver]) == 1 then
+                        result.repository[package][ver][k] = nil
+                     else
+                        table.remove(result.repository[package][ver], k)
+                     end
                      if not next(result.repository[package][ver]) then
                         result.repository[package][ver] = nil
                      end
