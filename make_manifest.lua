@@ -239,6 +239,7 @@ function(manifest, filename, rock_content, action)
             for _, v in ipairs(result.repository[package][ver]) do
                if v["arch"] == arch then
                   arch_exists = true
+                  break
                end
             end
             if arch_exists == false then
@@ -257,13 +258,14 @@ function(manifest, filename, rock_content, action)
                for k, v in ipairs(result.repository[package][ver]) do
                   if v["arch"] == arch then
                      arch_exists = true
-                     result.repository[package][ver][k] = nil
+                     table.remove(result.repository[package][ver], k)
                      if not next(result.repository[package][ver]) then
                         result.repository[package][ver] = nil
                      end
                      if not next(result.repository[package]) then
                         result.repository[package] = nil
                      end
+                     break
                   end
                end
                if arch_exists then
