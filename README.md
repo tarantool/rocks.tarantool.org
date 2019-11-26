@@ -40,3 +40,19 @@ jobs:
             curl --fail -X PUT -F "rockspec=@-;filename=$ROCK_NAME-$TRAVIS_TAG-1.rockspec"
               https://$ROCKS_USERNAME:$ROCKS_PASSWORD@$ROCKS_SERVER
 ```
+
+## Gitlab CI integration
+
+Add `ROCKS_USERNAME` and `ROCKS_PASSWORD` build variables.
+
+```yaml
+stages:
+  - test
+  - publish
+
+include:
+  remote: https://tarantool.github.io/rocks.tarantool.org/helpers/gitlab-publish-rockspec.yml
+```
+
+That's it. For advanced usage see how to
+[tune external tasks](https://docs.gitlab.com/ee/ci/yaml/#overriding-external-template-values).
