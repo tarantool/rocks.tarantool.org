@@ -13,7 +13,7 @@ test:
 
 deploy:
   stage: deploy
-  image: ruby:2.2
+  image: ruby:2.6.5-buster
   environment:
     name: production
     url: https://tarantool-rocks.herokuapp.com
@@ -21,7 +21,7 @@ deploy:
   only:
     - master
   before_script:
-    - gem install dpl
+    - gem install dpl-heroku
   script:
     - dpl --provider=heroku --app=tarantool-rocks --api-key=$HOSTING_API_KEY
   tags:
