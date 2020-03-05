@@ -209,6 +209,13 @@ def test_put(app):
     assert list(S3Mock.instance.files.keys()) == ['manifest',
         'fizz-buzz-scm-1.rockspec', 'fizz-buzz-1.0.1-1.all.rock']
 
+    response = put(rock_binary, 'fizz-buzz-1.0.1-1.x86.rock', binary=True)
+    answer = json.loads(response.content)
+    assert response.status_code == 400
+    assert answer.get('message') == 'File with name fizz-buzz-1.0.1-1.x86.rock is not supported. Rocks server can ' \
+                                    'serve .rockspec, .src.rock and .all.rock files only'
+
+
 
 def test_delete(app):
     response = put(b'', 'cartridge-6.6.6-1.src.rock', binary=True)
