@@ -1,5 +1,6 @@
 import json
 import os
+import re
 from io import BytesIO
 
 import boto3
@@ -106,6 +107,17 @@ def patch_manifest(manifest: str, filename: str, rock_content: str = '', action:
     return msg, manifest
 
 
+def file_name_is_valid(name):
+    pattern = re.compile(r'.*(.rockspec|.src.rock|.all.rock)$')
+    if pattern.match(name):
+        error = None
+    else:
+        error = f'File with name {name} is not supported. Rocks ' \
+                f'server can serve .rockspec, .src.rock and .all.rock' \
+                f' files only'
+    return error
+
+
 class S3View(MethodView):
     bucket = ROCKS_UPLOAD_BUCKET
     expires_in = 24 * 60 * 60
@@ -138,12 +150,16 @@ class S3View(MethodView):
         if not file:
             raise InvalidUsage('package file was not found in request data')
 
+        file_name = file.filename
+        error = file_name_is_valid(file_name)
+        if error:
+            raise InvalidUsage(error)
+
         is_text = istextfile(file)
         file.seek(0)
 
         package = file.read()
         rockspec = package if is_text else ''
-        file_name = file.filename
 
         message, patched_manifest = patch_manifest(manifest, file_name,
                                                    rock_content=rockspec, action='add')
