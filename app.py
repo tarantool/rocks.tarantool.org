@@ -24,6 +24,8 @@ USER = os.environ.get("USER")
 PASSWORD = os.environ.get("PASSWORD")
 PORT = os.environ.get("PORT", 5000)
 TARANTOOL_IO_REDIRECT_URL = "https://www.tarantool.io/en/download/rocks"
+MANIFEST_TARGETS = ['manifest-5.1']
+MANIFEST = 'manifest'
 
 MANIFEST_SCRIPT = 'make_manifest.lua'
 
@@ -210,6 +212,9 @@ class S3View(MethodView):
             return 'Server config does not exist'
 
         path = path.strip('/')
+
+        if path in MANIFEST_TARGETS:
+            path = MANIFEST
 
         url = self.presign_get(path)
         return redirect(url)

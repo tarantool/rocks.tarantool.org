@@ -153,6 +153,13 @@ def test_get(app):
     assert response.is_redirect is True
     assert response.headers.get('Location') == 'https://hb.bizmrd.ru/tarantool/manifest'
 
+    response = get('manifest-5.1')
+
+    assert response.status_code == 302
+    assert response.url == SERVER_MOCK + "/manifest-5.1"
+    assert response.is_redirect is True
+    assert response.headers.get('Location') == 'https://hb.bizmrd.ru/tarantool/manifest'
+
     response = get('fiz-buzz-scm-3.rockspec')
 
     assert response.status_code == 302
