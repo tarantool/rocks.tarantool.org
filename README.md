@@ -32,6 +32,7 @@ jobs:
             https://$ROCKS_USERNAME:$ROCKS_PASSWORD@$ROCKS_SERVER
         - on:
             tags: true
+            all_branches: true
           provider: script
           script: cat $ROCK_NAME-scm-1.rockspec |
             sed -E
