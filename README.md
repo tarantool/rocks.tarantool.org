@@ -49,7 +49,7 @@ jobs:
       - run: tarantoolctl rocks new_version --tag $TAG
       - run: tarantoolctl rocks pack ${{ env.ROCK_NAME }}-$TAG-1.rockspec
 
-      - uses: tarantool/rocks.tarantool.org/github-action
+      - uses: tarantool/rocks.tarantool.org/github-action@master
         with:
           auth: ${{ secrets.ROCKS_AUTH }}
           files: |
