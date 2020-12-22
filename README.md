@@ -21,6 +21,9 @@ curl --fail \
 
 ## Github Actions integration
 
+To use this action one must set the `ROCKS_AUTH` secret in the
+repository that contains the workflow.
+
 ```yaml
 env:
   ROCK_NAME: mymodule
@@ -31,27 +34,27 @@ jobs:
       - uses: actions/checkout@v2
       - uses: tarantool/rocks.tarantool.org/github-action
         with:
-          auth: ${{ secrets.ROCKS_USERNAME }}:${{ secrets.ROCKS_PASSWORD }}
+          auth: ${{ secrets.ROCKS_AUTH }}
           files: ${{ env.ROCK_NAME }}-scm-1.rockspec
 
   publish-tag:
     if: startsWith(github.ref, 'refs/tags/')
     steps:
       - uses: actions/checkout@v2
-      - run: echo "TAG=${GITHUB_REF##*/}" >> $GITHUB_ENV
+      - uses: rosik/setup-tarantool@v1
+        with:
+          tarantool-version: '2.5'
 
-      - run: cat ${{ env.ROCK_NAME }}-scm-1.rockspec |
-          sed -E
-            -e "s/branch = '.+'/tag = '$TAG'/g"
-            -e "s/version = '.+'/version = '$TAG-1'/g" |
-          tee ${{ env.ROCK_NAME }}-$TAG-1.rockspec
+      - run: echo "TAG=${GITHUB_REF##*/}" >> $GITHUB_ENV
+      - run: tarantoolctl rocks new_version --tag $TAG
+      - run: tarantoolctl rocks pack ${{ env.ROCK_NAME }}-$TAG-1.rockspec
 
       - uses: tarantool/rocks.tarantool.org/github-action
         with:
-          auth: ${{ secrets.ROCKS_USERNAME }}:${{ secrets.ROCKS_PASSWORD }}
+          auth: ${{ secrets.ROCKS_AUTH }}
           files: |
             ${{ env.ROCK_NAME }}-${{ env.TAG }}-1.rockspec
-            # ${{ env.ROCK_NAME }}-${{ env.TAG }}-1.src.rock
+            ${{ env.ROCK_NAME }}-${{ env.TAG }}-1.src.rock
 ```
 
 ## Travis CI integration
