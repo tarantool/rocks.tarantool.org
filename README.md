@@ -32,7 +32,7 @@ jobs:
   publish-scm-1:
     steps:
       - uses: actions/checkout@v2
-      - uses: tarantool/rocks.tarantool.org/github-action
+      - uses: tarantool/rocks.tarantool.org/github-action@master
         with:
           auth: ${{ secrets.ROCKS_AUTH }}
           files: ${{ env.ROCK_NAME }}-scm-1.rockspec
@@ -46,8 +46,10 @@ jobs:
           tarantool-version: '2.5'
 
       - run: echo "TAG=${GITHUB_REF##*/}" >> $GITHUB_ENV
-      - run: tarantoolctl rocks new_version --tag $TAG
-      - run: tarantoolctl rocks pack ${{ env.ROCK_NAME }}-$TAG-1.rockspec
+      - run: tarantoolctl rocks new_version --tag ${{ env.TAG }}
+      - run: tarantoolctl rocks install ${{ env.ROCK_NAME }}-${{ env.TAG }}-1.rockspec
+      - run: tarantoolctl rocks pack ${{ env.ROCK_NAME }}-${{ env.TAG }}-1.rockspec
+      - run: tarantoolctl rocks pack ${{ env.ROCK_NAME }} ${{ env.TAG }}
 
       - uses: tarantool/rocks.tarantool.org/github-action@master
         with:
