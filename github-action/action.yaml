@@ -4,8 +4,8 @@ inputs:
   auth:
     description: 'Credentials for the rocks server authentication'
     required: true
-  filename:
-    description: 'The rock filename to upload'
+  files:
+    description: 'A list of rocks to upload'
     required: true
   rocks-server:
     description: 'Custom rocks server URL'
@@ -14,8 +14,10 @@ runs:
   using: 'composite'
   steps:
     - shell: bash
-      run: >
-        set -x;
-        curl --fail
-        -u ${{ inputs.auth }} ${{ inputs.rocks-server }}
-        -X PUT -F "rockspec=@${{ inputs.filename }}"
+      run: set -x;
+        FILES="${{ inputs.files }}";
+        for F in $FILES; do
+          curl --fail
+          -u ${{ inputs.auth }} ${{ inputs.rocks-server }}
+          -X PUT -F "rockspec=@$F";
+        done

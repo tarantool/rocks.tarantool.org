@@ -22,12 +22,36 @@ curl --fail \
 ## Github Actions integration
 
 ```yaml
-steps:
-  - uses: actions/checkout@v2
-  - uses: tarantool/rocks.tarantool.org/github-action
-    with:
-      auth: ${{ secrets.ROCKS_USERNAME }}:${{ secrets.ROCKS_PASSWORD }}
-      filename: mymodule-scm-1.rockspec
+env:
+  ROCK_NAME: mymodule
+
+jobs:
+  publish-scm-1:
+    steps:
+      - uses: actions/checkout@v2
+      - uses: tarantool/rocks.tarantool.org/github-action
+        with:
+          auth: ${{ secrets.ROCKS_USERNAME }}:${{ secrets.ROCKS_PASSWORD }}
+          files: ${{ env.ROCK_NAME }}-scm-1.rockspec
+
+  publish-tag:
+    if: startsWith(github.ref, 'refs/tags/')
+    steps:
+      - uses: actions/checkout@v2
+      - run: echo "TAG=${GITHUB_REF##*/}" >> $GITHUB_ENV
+
+      - run: cat ${{ env.ROCK_NAME }}-scm-1.rockspec |
+          sed -E
+            -e "s/branch = '.+'/tag = '$TAG'/g"
+            -e "s/version = '.+'/version = '$TAG-1'/g" |
+          tee ${{ env.ROCK_NAME }}-$TAG-1.rockspec
+
+      - uses: tarantool/rocks.tarantool.org/github-action
+        with:
+          auth: ${{ secrets.ROCKS_USERNAME }}:${{ secrets.ROCKS_PASSWORD }}
+          files: |
+            ${{ env.ROCK_NAME }}-${{ env.TAG }}-1.rockspec
+            # ${{ env.ROCK_NAME }}-${{ env.TAG }}-1.src.rock
 ```
 
 ## Travis CI integration
@@ -35,7 +59,7 @@ steps:
 ```yaml
 env:
   global:
-    - ROCK_NAME=...
+    - ROCK_NAME=mymodule
 
 jobs:
   include:

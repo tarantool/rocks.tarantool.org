@@ -34,10 +34,16 @@ jobs:
       # Run tests
       - run: pytest
 
-      # Test upload
-      - run: cat > dummy-scm-1.rockspec <<<
-          "package = 'dummy' version = 'scm-1'"
+      # Generate fixtures
+      - run: >
+          for i in $(seq 6); do
+            tee dummy-scm-$i.rockspec <<< "
+              package = 'dummy'
+              version = 'scm-$i'
+            "
+          done
 
+      # Test upload
       - name: Run rocks server
         id: run-rocks-server
         shell: python
@@ -59,9 +65,28 @@ jobs:
 
       - uses: ./github-action
         with:
-          auth: test:test
-          filename: dummy-scm-1.rockspec
           rocks-server: http://localhost:8080
+          auth: test:test
+          files: | # check new-line separated list
+            dummy-scm-1.rockspec
+            dummy-scm-2.rockspec
+            dummy-scm-3.rockspec
+
+      - uses: ./github-action
+        with:
+          rocks-server: http://localhost:8080
+          auth: test:test
+          files: > # check space separated list
+            dummy-scm-4.rockspec
+            dummy-scm-5.rockspec
+
+      - uses: ./github-action
+        env: {TAG: scm-6}
+        with:
+          rocks-server: http://localhost:8080
+          auth: test:test
+          files: > # check filename interpolation
+            dummy-${{ env.TAG }}.rockspec
 
       - name: Stop rocks server
         run: kill -9 "${{ steps.run-rocks-server.outputs.pid }}" || true
