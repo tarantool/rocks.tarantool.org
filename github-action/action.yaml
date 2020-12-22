@@ -1,0 +1,21 @@
+name: 'Upload rocks'
+description: 'Upload a rock to the https://rocks.tarantool.org'
+inputs:
+  auth:
+    description: 'Credentials for the rocks server authentication'
+    required: true
+  filename:
+    description: 'The rock filename to upload'
+    required: true
+  rocks-server:
+    description: 'Custom rocks server URL'
+    default: 'https://rocks.tarantool.org'
+runs:
+  using: 'composite'
+  steps:
+    - shell: bash
+      run: >
+        set -x;
+        curl --fail
+        -u ${{ inputs.auth }} ${{ inputs.rocks-server }}
+        -X PUT -F "rockspec=@${{ inputs.filename }}"

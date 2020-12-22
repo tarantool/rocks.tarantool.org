@@ -19,6 +19,17 @@ curl --fail \
   -X DELETE -d '{"file_name":"mymodule-scm-1.src.rock"}'
 ```
 
+## Github Actions integration
+
+```yaml
+steps:
+  - uses: actions/checkout@v2
+  - uses: tarantool/rocks.tarantool.org/github-action
+    with:
+      auth: ${{ secrets.ROCKS_USERNAME }}:${{ secrets.ROCKS_PASSWORD }}
+      filename: mymodule-scm-1.rockspec
+```
+
 ## Travis CI integration
 
 ```yaml

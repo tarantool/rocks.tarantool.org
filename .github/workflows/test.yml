@@ -1,0 +1,68 @@
+name: Test
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        runs-on: [ubuntu-20.04]
+    runs-on: ${{ matrix.runs-on }}
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-python@v2
+        with:
+          python-version: '3.7'
+
+      # Setup requirements
+      - name: Cache pip packages
+        uses: actions/cache@v2
+        id: cache-venv
+        with:
+          path: ./venv
+          key: cache-venv-${{ matrix.runs-on }}-01
+      - name: Run pip install
+        run: |
+          python -m venv ./venv && . ./venv/bin/activate
+          pip install -r requirements.txt
+        if: steps.cache-venv.outputs.cache-hit != 'true'
+      - run: echo "$PWD/venv/bin" >> $GITHUB_PATH
+
+      # Run tests
+      - run: pytest
+
+      # Test upload
+      - run: cat > dummy-scm-1.rockspec <<<
+          "package = 'dummy' version = 'scm-1'"
+
+      - name: Run rocks server
+        id: run-rocks-server
+        shell: python
+        run: |
+          import os, sys
+          sys.path.insert(0, os.getcwd())
+
+          import app, tests.conftest
+          setattr(app.boto3, 'client', tests.conftest.S3Mock)
+          setattr(app, 'USER', 'test')
+          setattr(app, 'PASSWORD', 'test')
+
+          pid = os.fork()
+          if pid > 0: # daemonize
+              print('::set-output name=pid::{}'.format(pid))
+              sys.exit(0)
+
+          app.app.run(port=8080)
+
+      - uses: ./github-action
+        with:
+          auth: test:test
+          filename: dummy-scm-1.rockspec
+          rocks-server: http://localhost:8080
+
+      - name: Stop rocks server
+        run: kill -9 "${{ steps.run-rocks-server.outputs.pid }}" || true
+        if: always()
