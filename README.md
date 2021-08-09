@@ -5,16 +5,18 @@
 You can upload `.rockspec`, `.src.rock`, `.all.rock`,
 but please don't upload any platform-dependent `.*.rock`.
 
+To upload a file one must be authorized and have `ROCKS_AUTH` credentials.
+
 ```bash
 curl --fail \
-  -u $ROCKS_USERNAME:$ROCKS_PASSWORD https://rocks.tarantool.org \
+  -u $ROCKS_AUTH https://rocks.tarantool.org \
   -X PUT -F "rockspec=@mymodule-scm-1.src.rock"
 ```
 
 and delete it
 ```bash
 curl --fail \
-  -u $ROCKS_USERNAME:$ROCKS_PASSWORD https://rocks.tarantool.org \
+  -u $ROCKS_AUTH https://rocks.tarantool.org \
   -H "Content-Type: application/json" \
   -X DELETE -d '{"file_name":"mymodule-scm-1.src.rock"}'
 ```
@@ -47,6 +49,7 @@ jobs:
 
       - run: echo "TAG=${GITHUB_REF##*/}" >> $GITHUB_ENV
       - run: tarantoolctl rocks new_version --tag ${{ env.TAG }}
+      - run: sed -i '/branch = "master"/d' ${{ env.ROCK_NAME }}-${{ env.TAG }}-1.rockspec
       - run: tarantoolctl rocks install ${{ env.ROCK_NAME }}-${{ env.TAG }}-1.rockspec
       - run: tarantoolctl rocks pack ${{ env.ROCK_NAME }}-${{ env.TAG }}-1.rockspec
       - run: tarantoolctl rocks pack ${{ env.ROCK_NAME }} ${{ env.TAG }}
@@ -57,6 +60,7 @@ jobs:
           files: |
             ${{ env.ROCK_NAME }}-${{ env.TAG }}-1.rockspec
             ${{ env.ROCK_NAME }}-${{ env.TAG }}-1.src.rock
+            ${{ env.ROCK_NAME }}-${{ env.TAG }}-1.all.rock
 ```
 
 ## Travis CI integration
@@ -74,7 +78,7 @@ jobs:
       deploy:
         - provider: script
           script: curl --fail
-            -u $ROCKS_USERNAME:$ROCKS_PASSWORD https://rocks.tarantool.org
+            -u $ROCKS_AUTH https://rocks.tarantool.org
             -X PUT -F rockspec=@$ROCK_NAME-scm-1.rockspec
         - on:
             tags: true
@@ -85,7 +89,7 @@ jobs:
               -e "s/branch = '.+'/tag = '$TRAVIS_TAG'/g"
               -e "s/version = '.+'/version = '$TRAVIS_TAG-1'/g" |
             curl --fail
-              -u $ROCKS_USERNAME:$ROCKS_PASSWORD https://rocks.tarantool.org
+              -u $ROCKS_AUTH https://rocks.tarantool.org
               -X PUT -F "rockspec=@-;filename=$ROCK_NAME-$TRAVIS_TAG-1.rockspec"
 ```
 
