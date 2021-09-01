@@ -136,13 +136,18 @@ class S3View(MethodView):
             region_name=S3_REGION
         )
 
-    def presign_get(self, filename):
-        return self.client.generate_presigned_url(
-            ClientMethod='get_object',
-            Params={
+    def presign_get(self, filename, resp_filename=None):
+        params = {
                 'Bucket': self.bucket,
                 'Key': f'{S3_ROCKS_FOLDER}{filename}',
-            },
+        }
+        if resp_filename:
+            params['ResponseContentDisposition'] = \
+                f"attachment; filename = {resp_filename}"
+
+        return self.client.generate_presigned_url(
+            ClientMethod='get_object',
+            Params=params,
             ExpiresIn=self.expires_in
         )
 
@@ -214,11 +219,13 @@ class S3View(MethodView):
             return 'Server config does not exist'
 
         path = path.strip('/')
+        r_filename = None
 
         if path in MANIFEST_TARGETS:
             path = MANIFEST
+            r_filename = path
 
-        url = self.presign_get(path)
+        url = self.presign_get(path, r_filename)
         return redirect(url)
 
     def object_exists(self, filename):
