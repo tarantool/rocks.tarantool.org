@@ -29,6 +29,9 @@ MANIFEST = 'manifest'
 
 MANIFEST_SCRIPT = 'make_manifest.lua'
 
+supported_files_pattern = re.compile(r'.*(.rockspec|.src.rock|.all.rock)$')
+
+
 def int2byte(x):
     return bytes((x,))
 
@@ -110,8 +113,7 @@ def patch_manifest(manifest: str, filename: str, rock_content: str = '', action:
 
 
 def file_name_is_valid(name):
-    pattern = re.compile(r'.*(.rockspec|.src.rock|.all.rock)$')
-    if pattern.match(name):
+    if supported_files_pattern.match(name):
         error = None
     else:
         error = f'File with name {name} is not supported. Rocks ' \
