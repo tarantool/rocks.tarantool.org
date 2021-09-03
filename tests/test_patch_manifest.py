@@ -59,21 +59,21 @@ def test_multiarch():
         }
     """)
 
-    msg, manifest = patch_manifest(manifest, 'cartridge-6.6.6-1.src.rock')
+    msg, patched_manifest_1 = patch_manifest(manifest, 'cartridge-6.6.6-1.src.rock')
     assert msg == "rock entry was successfully added to manifest"
 
-    with pytest.raises(InvalidUsage) as err:
-        msg, manifest = patch_manifest(manifest, 'cartridge-6.6.6-1.src.rock')
-    assert err.value.message == "the rock already exists"
+    msg, patched_manifest_2 = patch_manifest(patched_manifest_1, 'cartridge-6.6.6-1.src.rock')
+    assert msg == "the rock already exists"
+    assert patched_manifest_2 == None
 
-    msg, manifest = patch_manifest(manifest, 'cartridge-6.6.6-1.all.rock')
+    msg, patched_manifest_3 = patch_manifest(patched_manifest_1, 'cartridge-6.6.6-1.all.rock')
     assert msg == "rock entry was successfully added to manifest"
+    assert patched_manifest_3 == manifest_expected
 
-    with pytest.raises(InvalidUsage) as err:
-        msg, manifest = patch_manifest(manifest, 'cartridge-6.6.6-1.all.rock')
-    assert err.value.message == "the rock already exists"
+    msg, patched_manifest_4 = patch_manifest(patched_manifest_3, 'cartridge-6.6.6-1.all.rock')
+    assert msg == "the rock already exists"
+    assert patched_manifest_4 == None
 
-    assert manifest == manifest_expected
 
 def test_multiversion():
     manifest = """
@@ -137,7 +137,7 @@ def test_rockspec():
         package = 'foo-bar'
         version = 'dev-1'
     """
-    msg, manifest = patch_manifest(manifest, 'foo-bar-dev-1.rockspec',
+    msg, patched_manifest_1 = patch_manifest(manifest, 'foo-bar-dev-1.rockspec',
         rock_content = rockspec)
     assert msg == "rock entry was successfully added to manifest"
 
@@ -145,19 +145,17 @@ def test_rockspec():
         package = 'foo-bar'
         version = '5.4.3.2-1'
     """
-    msg, manifest = patch_manifest(manifest, 'foo-bar-5.4.3.2-1.rockspec',
-        rock_content = rockspec)
+    msg, patched_manifest_2 = patch_manifest(patched_manifest_1, 'foo-bar-5.4.3.2-1.rockspec',
+                                   rock_content = rockspec)
     assert msg == "rock entry was successfully added to manifest"
 
-    assert manifest == manifest_expected
+    assert patched_manifest_2 == manifest_expected
 
-    with pytest.raises(InvalidUsage) as err:
-        patch_manifest(manifest, 'foo-bar-dev-2.rockspec', rock_content = rockspec)
-    assert err.value.message == "rockspec name does not match package or version"
+    msg, patched_manifest_3 = patch_manifest(patched_manifest_2, 'foo-bar-dev-2.rockspec', rock_content = rockspec)
+    assert msg == "rockspec name does not match package or version"
 
-    with pytest.raises(InvalidUsage) as err:
-        patch_manifest(manifest, 'foo-baz-dev-1.rockspec', rock_content = rockspec)
-    assert err.value.message == "rockspec name does not match package or version"
+    msg, patched_manifest_4 = patch_manifest(patched_manifest_2, 'foo-baz-dev-1.rockspec', rock_content = rockspec)
+    assert msg == "rockspec name does not match package or version"
 
 
 def test_multipackage():
@@ -255,31 +253,41 @@ def test_remove_one():
         }
     """)
 
-    msg, manifest = patch_manifest(manifest, 'foo-bar-3.2-1.rockspec',
+    msg, patched_manifest_1 = patch_manifest(manifest, 'foo-bar-3.2-1.rockspec',
         action = 'remove')
     assert msg == "rock was successfully removed from manifest"
+    assert patched_manifest_1 == manifest_expected
 
-    with pytest.raises(InvalidUsage) as err:
-        patch_manifest(manifest, 'foo-bar-dev-1.all.rock', action = 'remove')
-    assert err.value.message == "rock architecture was not found in manifest"
+    msg, patched_manifest_2 = patch_manifest(patched_manifest_1, 'foo-bar-dev-1.all.rock', action='remove')
+    assert msg == "rock architecture was not found in manifest"
+    assert patched_manifest_2 == None
 
-    with pytest.raises(InvalidUsage) as err:
-        patch_manifest(manifest, 'foo-bar-3.2-1.rockspec', action = 'remove')
-    assert err.value.message == "rock architecture was not found in manifest"
+    msg, patched_manifest_3 = patch_manifest(patched_manifest_1, 'foo-bar-3.2-1.rockspec', action='remove')
+    assert msg == "rock architecture was not found in manifest"
 
-    with pytest.raises(InvalidUsage) as err:
-        patch_manifest(manifest, 'foo-bar-3.3-1.rockspec', action = 'remove')
-    assert err.value.message == "rock version was not found in manifest"
+    msg, patched_manifest_4 = patch_manifest(patched_manifest_1, 'foo-bar-3.3-1.rockspec', action='remove')
+    assert msg == "rock version was not found in manifest"
 
-    with pytest.raises(InvalidUsage) as err:
-        patch_manifest(manifest, 'foo-baz-dev-1.rockspec', action = 'remove')
-    assert err.value.message == "rock was not found in manifest"
+    msg, patched_manifest_5 = patch_manifest(patched_manifest_1, 'foo-bar-dev-1.all.rock', action='remove')
+    assert msg == "rock architecture was not found in manifest"
+    assert patched_manifest_5 == None
 
-    with pytest.raises(InvalidUsage) as err:
-        patch_manifest(manifest, 'foo.rockspec', action = 'remove')
-    assert err.value.message == "filename parsing error"
+    msg, patched_manifest_6 = patch_manifest(patched_manifest_1, 'foo-bar-3.2-1.rockspec', action='remove')
+    assert msg == "rock architecture was not found in manifest"
+    assert patched_manifest_6 == None
 
-    assert manifest == manifest_expected
+    msg, patched_manifest_7 = patch_manifest(patched_manifest_1, 'foo-bar-3.3-1.rockspec', action = 'remove')
+    assert msg == "rock version was not found in manifest"
+    assert patched_manifest_7 == None
+
+    msg, patched_manifest_8 = patch_manifest(patched_manifest_1, 'foo-baz-dev-1.rockspec', action = 'remove')
+    assert msg == "rock was not found in manifest"
+    assert patched_manifest_8 == None
+
+    msg, patched_manifest_9 = patch_manifest(patched_manifest_1, 'foo.rockspec', action = 'remove')
+    assert msg == "filename parsing error"
+    assert patched_manifest_9 == None
+
 
 def test_remove_last():
     manifest = dedent("""\
@@ -315,12 +323,11 @@ def test_remove_last():
         }
     """)
 
-    msg, manifest = patch_manifest(manifest, 'foo-bar-3.2-1.all.rock',
+    msg, patched_manifest_1 = patch_manifest(manifest, 'foo-bar-3.2-1.all.rock',
         action = 'remove')
     assert msg == "rock was successfully removed from manifest"
+    assert patched_manifest_1 == manifest_expected
 
-    with pytest.raises(InvalidUsage) as err:
-        patch_manifest(manifest, 'foo-bar-3.2-1.all.rock', action = 'remove')
-    assert err.value.message == "rock version was not found in manifest"
-
-    assert manifest == manifest_expected
+    msg, patched_manifest_2 = patch_manifest(patched_manifest_1, 'foo-bar-3.2-1.all.rock', action = 'remove')
+    assert msg == "rock version was not found in manifest"
+    assert patched_manifest_2 == None
