@@ -1,4 +1,5 @@
 import logging
+import re
 from textwrap import dedent
 
 class S3Mock:
@@ -20,6 +21,10 @@ class S3Mock:
         key = Params.get('Key')
         if key == '/':
             key = ''
+
+        content_disposition = Params.get('ResponseContentDisposition')
+        if content_disposition:
+            key = re.match(r'.*=?\s(.*)', content_disposition).groups()[0]
 
         return 'https://hb.bizmrd.ru/tarantool/%s' % key
 

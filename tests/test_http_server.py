@@ -35,6 +35,7 @@ def app(monkeypatch):
     monkeypatch.setattr(app.boto3, 'client', S3Mock)
     monkeypatch.setattr(app, 'USER', USER)
     monkeypatch.setattr(app, 'PASSWORD', PASSWORD)
+    monkeypatch.setattr(app.S3View, 'audit_log', lambda self, x: None)
 
     def run_server():
         server_is_ready = False
@@ -117,7 +118,7 @@ def test_get(app):
     assert response.status_code == 302
     assert response.url == SERVER_MOCK + "/manifest-5.1"
     assert response.is_redirect is True
-    assert response.headers.get('Location') == 'https://hb.bizmrd.ru/tarantool/manifest'
+    assert response.headers.get('Location') == 'https://hb.bizmrd.ru/tarantool/manifest-5.1'
 
     response = get('fiz-buzz-scm-3.rockspec')
 

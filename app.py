@@ -1,6 +1,8 @@
+import io
 import json
 import os
 import re
+from datetime import datetime
 from io import BytesIO
 
 import boto3
@@ -16,6 +18,7 @@ auth = HTTPBasicAuth()
 
 S3_URL = os.environ.get("S3_URL")
 S3_ROCKS_FOLDER = os.environ.get("S3_ROCKS_FOLDER", '')
+S3_AUDIT_FOLDER = os.environ.get("S3_AUDIT_FOLDER", '')
 S3_ACCESS_KEY = os.environ.get("S3_ACCESS_KEY")
 S3_SECRET_KEY = os.environ.get("S3_SECRET_KEY")
 S3_REGION = os.environ.get("S3_REGION")
@@ -177,6 +180,8 @@ class S3View(MethodView):
 
         self.client.upload_fileobj(BytesIO(str.encode(patched_manifest)), self.bucket, f'{S3_ROCKS_FOLDER}manifest')
 
+        self.audit_log(f'put {file_name} - {message}')
+
         return response_message(message)
 
     @auth.login_required
@@ -208,9 +213,12 @@ class S3View(MethodView):
 
         self.client.upload_fileobj(BytesIO(str.encode(patched_manifest)), self.bucket, f'{S3_ROCKS_FOLDER}manifest')
 
+        self.audit_log(f'delete {file_name} - {message}')
+
         return response_message(message)
 
     def get(self, path='/'):
+        self.audit_log('event')
 
         if path == '/':
             return redirect(TARANTOOL_IO_REDIRECT_URL, code=301)
@@ -222,20 +230,26 @@ class S3View(MethodView):
         r_filename = None
 
         if path in MANIFEST_TARGETS:
-            path = MANIFEST
+            # There's only one manifest in the repository.
+            # Add ResponseContentDisposition with a name of
+            # requested manifest (manifest-5.1). See #28.
             r_filename = path
+            path = MANIFEST
 
         url = self.presign_get(path, r_filename)
         return redirect(url)
 
-    def object_exists(self, filename):
+    def object_exists(self, filename, folder=None):
         if filename == '':
             return False
+
+        if folder is None:
+            folder = S3_ROCKS_FOLDER
 
         try:
             obj = self.client.get_object(
                 Bucket=self.bucket,
-                Key=f'{S3_ROCKS_FOLDER}{filename}'
+                Key=f'{folder}{filename}'
             )
         except botocore.exceptions.ClientError as ex:
             if ex.response['Error']['Code'] == 'NoSuchKey':
@@ -257,6 +271,22 @@ class S3View(MethodView):
         self.client.download_fileobj(self.bucket, f'{S3_ROCKS_FOLDER}manifest', manifest_io)
 
         return manifest_io.getvalue().decode('utf-8')
+
+    def audit_log(self, event: str):
+
+        log_data = f'{datetime.now()} | {event} | {request.remote_addr} | {json.dumps(dict(request.headers))}\n'
+
+        audit_file_name = f'{datetime.today().strftime("%y-%m")}.log'
+        audit_file = BytesIO()
+
+        if self.object_exists(audit_file_name, S3_AUDIT_FOLDER):
+            self.client.download_fileobj(self.bucket, f'{S3_AUDIT_FOLDER}{audit_file_name}', audit_file)
+
+        audit_file.seek(0, io.SEEK_END)
+        audit_file.write(log_data.encode())
+        audit_file.seek(0)
+
+        self.client.upload_fileobj(audit_file, self.bucket, f'{S3_AUDIT_FOLDER}{audit_file_name}')
 
 
 s3_view = S3View.as_view('s3_view')

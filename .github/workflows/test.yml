@@ -15,7 +15,7 @@ jobs:
       - uses: actions/checkout@v2
       - uses: actions/setup-python@v2
         with:
-          python-version: '3.7'
+          python-version: '3.8'
 
       # Setup requirements
       - name: Cache pip packages
@@ -55,6 +55,7 @@ jobs:
           setattr(app.boto3, 'client', tests.conftest.S3Mock)
           setattr(app, 'USER', 'test')
           setattr(app, 'PASSWORD', 'test')
+          setattr(app.S3View, 'audit_log', lambda self, x: None)
 
           pid = os.fork()
           if pid > 0: # daemonize
