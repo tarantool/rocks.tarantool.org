@@ -69,24 +69,6 @@ def get(rock):
                         allow_redirects=False)
 
 
-def delete(rock):
-    return requests.delete(SERVER_MOCK,
-                           json={'file_name': rock},
-                           auth=HTTPBasicAuth(USER, PASSWORD))
-
-
-def delete_non_json(rock):
-    return requests.delete(SERVER_MOCK,
-                           data={'file_name': rock},
-                           auth=HTTPBasicAuth(USER, PASSWORD))
-
-
-def delete_empty():
-    return requests.delete(SERVER_MOCK,
-                           headers={"Content-type": "application/json"},
-                           auth=HTTPBasicAuth(USER, PASSWORD))
-
-
 def put(rock, filename, binary=False):
     file = BytesIO(rock) if binary else StringIO(rock)
     file.name = filename
@@ -154,6 +136,11 @@ def test_put(app):
             }
         """)
 
+    response = put(rockspec, 'fizz-buzz-scm-1.rockspec')
+    answer = json.loads(response.content)
+    assert response.status_code == 201
+    assert answer.get('message') == 'rock entry was successfully added to manifest'
+
     response = put(rockspec, 'fiz-buzz-scm-3.rockspec')
     answer = json.loads(response.content)
     assert response.status_code == 400
@@ -169,6 +156,11 @@ def test_put(app):
     assert list(S3Mock.instance.files.keys()) == ['manifest',
         'fizz-buzz-scm-1.rockspec', 'fizz-buzz-1.0.1-1.all.rock']
 
+    response = put(rock_binary, 'fizz-buzz-1.0.1-1.all.rock', binary=True)
+    answer = json.loads(response.content)
+    assert response.status_code == 400
+    assert answer.get('message') == 'the rock already exists'
+
     response = put_empty()
     answer = json.loads(response.content)
     assert response.status_code == 400
@@ -181,37 +173,3 @@ def test_put(app):
     assert response.status_code == 400
     assert answer.get('message') == 'File with name fizz-buzz-1.0.1-1.x86.rock is not supported. Rocks server can ' \
                                     'serve .rockspec, .src.rock and .all.rock files only'
-
-
-
-def test_delete(app):
-    response = put(b'', 'cartridge-6.6.6-1.src.rock', binary=True)
-    response = put(b'', 'cartridge-6.6.6-2.src.rock', binary=True)
-    assert list(S3Mock.instance.files.keys()) == ['manifest',
-        'cartridge-6.6.6-1.src.rock', 'cartridge-6.6.6-2.src.rock']
-
-    response = delete('cartridge-6.6.6-1.src.rock')
-
-    answer = json.loads(response.content.decode('utf-8'))
-    assert answer['message'] == "rock was successfully removed from manifest"
-    assert response.status_code == 201
-    assert list(S3Mock.instance.files.keys()) == ['manifest',
-        'cartridge-6.6.6-2.src.rock']
-
-    response = delete('cartridge-6.6.6-0.src.rock')
-
-    answer = json.loads(response.content.decode('utf-8'))
-    assert answer['message'] == "rock version was not found in manifest"
-    assert response.status_code == 400
-    assert list(S3Mock.instance.files.keys()) == ['manifest',
-        'cartridge-6.6.6-2.src.rock']
-
-    response = delete_empty()
-    answer = json.loads(response.content.decode('utf-8'))
-    assert answer['message'] == 'could not decode json form request'
-    assert response.status_code == 400
-
-    response = delete_non_json('cartridge-6.6.6-1.src.rock')
-    answer = json.loads(response.content.decode('utf-8'))
-    assert answer['message'] == 'Rocks server supports application/json only'
-    assert response.status_code == 400

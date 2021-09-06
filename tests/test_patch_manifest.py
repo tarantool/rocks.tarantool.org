@@ -61,8 +61,17 @@ def test_multiarch():
 
     msg, manifest = patch_manifest(manifest, 'cartridge-6.6.6-1.src.rock')
     assert msg == "rock entry was successfully added to manifest"
+
+    with pytest.raises(InvalidUsage) as err:
+        msg, manifest = patch_manifest(manifest, 'cartridge-6.6.6-1.src.rock')
+    assert err.value.message == "the rock already exists"
+
     msg, manifest = patch_manifest(manifest, 'cartridge-6.6.6-1.all.rock')
     assert msg == "rock entry was successfully added to manifest"
+
+    with pytest.raises(InvalidUsage) as err:
+        msg, manifest = patch_manifest(manifest, 'cartridge-6.6.6-1.all.rock')
+    assert err.value.message == "the rock already exists"
 
     assert manifest == manifest_expected
 
