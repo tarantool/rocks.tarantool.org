@@ -55,6 +55,7 @@ jobs:
           setattr(app.boto3, 'client', tests.conftest.S3Mock)
           setattr(app, 'USER', 'test')
           setattr(app, 'PASSWORD', 'test')
+          setattr(app, 'patch_manifest_func', tests.conftest.patch_manifest_func_mock)
 
           pid = os.fork()
           if pid > 0: # daemonize

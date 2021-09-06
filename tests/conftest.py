@@ -1,5 +1,12 @@
 import logging
+import os.path
+import sys
 from textwrap import dedent
+
+sys.path.append(os.path.dirname(os.path.dirname(__file__)))
+
+from app import patch_manifest_func
+
 
 class S3Mock:
     instance = None
@@ -38,3 +45,10 @@ class S3Mock:
     def delete_object(self, Bucket, Key):
         logging.info('DELETE %s' % Key)
         del self.files[Key]
+
+
+def patch_manifest_func_mock(*args, **kwargs):
+    if args[1] == 'fizz-buzz-1.13.666-1.rockspec':
+        # return an empty manifest to raise an error
+        return None, ''
+    return patch_manifest_func(*args, **kwargs)
