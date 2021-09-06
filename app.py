@@ -96,14 +96,15 @@ def verify_password(user, password):
     return USER == user and PASSWORD == password
 
 
+lua = LuaRuntime(unpack_returned_tuples=True)
+
+with open(MANIFEST_SCRIPT, 'r') as file:
+    patch_manifest_script = file.read()
+
+patch_manifest_func = lua.eval(patch_manifest_script)
+
+
 def patch_manifest(manifest: str, filename: str, rock_content: str = '', action: str = 'add') -> tuple:
-    lua = LuaRuntime(unpack_returned_tuples=True)
-
-    with open(MANIFEST_SCRIPT, 'r') as file:
-        patch_manifest_script = file.read()
-
-    patch_manifest_func = lua.eval(patch_manifest_script)
-
     msg, manifest = patch_manifest_func(manifest, filename, rock_content, action)
 
     if not manifest:
@@ -168,40 +169,11 @@ class S3View(MethodView):
         message, patched_manifest = patch_manifest(manifest, file_name,
                                                    rock_content=rockspec, action='add')
 
-        self.client.upload_fileobj(BytesIO(package), self.bucket, f'{S3_ROCKS_FOLDER}{file_name}')
+        if patched_manifest:
 
-        self.client.upload_fileobj(BytesIO(str.encode(patched_manifest)), self.bucket, f'{S3_ROCKS_FOLDER}manifest')
+            self.client.upload_fileobj(BytesIO(package), self.bucket, f'{S3_ROCKS_FOLDER}{file_name}')
 
-        return response_message(message)
-
-    @auth.login_required
-    def delete(self):
-        manifest = self.download_manifest()
-
-        if not request.content_type == 'application/json':
-            return response_message('Rocks server supports application/json only', 400)
-
-        try:
-            payload = json.loads(request.data.decode('utf-8'))
-        except json.JSONDecodeError:
-            return response_message("could not decode json form request", 400)
-
-        file_name = payload.get('file_name')
-
-        if not file_name:
-            return response_message('file_name to delete was not found', 400)
-
-        message, patched_manifest = patch_manifest(manifest, file_name, '', 'remove')
-
-        if not self.object_exists(file_name):
             self.client.upload_fileobj(BytesIO(str.encode(patched_manifest)), self.bucket, f'{S3_ROCKS_FOLDER}manifest')
-            raise InvalidUsage('rockspec {} does not exist'.format(file_name))
-        self.client.delete_object(
-            Bucket=self.bucket,
-            Key=f'{S3_ROCKS_FOLDER}{file_name}'
-        )
-
-        self.client.upload_fileobj(BytesIO(str.encode(patched_manifest)), self.bucket, f'{S3_ROCKS_FOLDER}manifest')
 
         return response_message(message)
 
@@ -254,7 +226,7 @@ class S3View(MethodView):
 
 s3_view = S3View.as_view('s3_view')
 app.add_url_rule('/<path>', view_func=s3_view, methods=['GET'])
-app.add_url_rule('/', view_func=s3_view, methods=['GET', 'PUT', 'DELETE'])
+app.add_url_rule('/', view_func=s3_view, methods=['GET', 'PUT'])
 
 if __name__ == '__main__':
     app.run(port=PORT)

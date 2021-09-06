@@ -12,7 +12,8 @@ from threading import Thread
 
 import pytest
 import requests
-from conftest import S3Mock
+
+from conftest import S3Mock, patch_manifest_func_mock
 from requests.auth import HTTPBasicAuth
 
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
@@ -28,6 +29,7 @@ USER = random_string()
 PASSWORD = random_string()
 SERVER_MOCK = 'http://0.0.0.0:5000'
 
+
 @pytest.fixture
 def app(monkeypatch):
     import app
@@ -35,6 +37,7 @@ def app(monkeypatch):
     monkeypatch.setattr(app.boto3, 'client', S3Mock)
     monkeypatch.setattr(app, 'USER', USER)
     monkeypatch.setattr(app, 'PASSWORD', PASSWORD)
+    monkeypatch.setattr(app, 'patch_manifest_func', patch_manifest_func_mock)
 
     def run_server():
         server_is_ready = False
@@ -66,24 +69,6 @@ def get(rock):
     return requests.get(SERVER_MOCK + '/' + rock,
                         auth=HTTPBasicAuth(USER, PASSWORD),
                         allow_redirects=False)
-
-
-def delete(rock):
-    return requests.delete(SERVER_MOCK,
-                           json={'file_name': rock},
-                           auth=HTTPBasicAuth(USER, PASSWORD))
-
-
-def delete_non_json(rock):
-    return requests.delete(SERVER_MOCK,
-                           data={'file_name': rock},
-                           auth=HTTPBasicAuth(USER, PASSWORD))
-
-
-def delete_empty():
-    return requests.delete(SERVER_MOCK,
-                           headers={"Content-type": "application/json"},
-                           auth=HTTPBasicAuth(USER, PASSWORD))
 
 
 def put(rock, filename, binary=False):
@@ -153,6 +138,11 @@ def test_put(app):
             }
         """)
 
+    response = put(rockspec, 'fizz-buzz-scm-1.rockspec')
+    answer = json.loads(response.content)
+    assert response.status_code == 201
+    assert answer.get('message') == 'rock entry was successfully added to manifest'
+
     response = put(rockspec, 'fiz-buzz-scm-3.rockspec')
     answer = json.loads(response.content)
     assert response.status_code == 400
@@ -168,6 +158,11 @@ def test_put(app):
     assert list(S3Mock.instance.files.keys()) == ['manifest',
         'fizz-buzz-scm-1.rockspec', 'fizz-buzz-1.0.1-1.all.rock']
 
+    response = put(rock_binary, 'fizz-buzz-1.0.1-1.all.rock', binary=True)
+    answer = json.loads(response.content)
+    assert response.status_code == 400
+    assert answer.get('message') == 'the rock already exists'
+
     response = put_empty()
     answer = json.loads(response.content)
     assert response.status_code == 400
@@ -182,35 +177,23 @@ def test_put(app):
                                     'serve .rockspec, .src.rock and .all.rock files only'
 
 
+def test_brake_manifest(app):
+    rockspec = """\
+        package = 'fizz-buzz'
+        version = '1.13.666-1'
+    """
 
-def test_delete(app):
-    response = put(b'', 'cartridge-6.6.6-1.src.rock', binary=True)
-    response = put(b'', 'cartridge-6.6.6-2.src.rock', binary=True)
-    assert list(S3Mock.instance.files.keys()) == ['manifest',
-        'cartridge-6.6.6-1.src.rock', 'cartridge-6.6.6-2.src.rock']
-
-    response = delete('cartridge-6.6.6-1.src.rock')
-
-    answer = json.loads(response.content.decode('utf-8'))
-    assert answer['message'] == "rock was successfully removed from manifest"
-    assert response.status_code == 201
-    assert list(S3Mock.instance.files.keys()) == ['manifest',
-        'cartridge-6.6.6-2.src.rock']
-
-    response = delete('cartridge-6.6.6-0.src.rock')
-
-    answer = json.loads(response.content.decode('utf-8'))
-    assert answer['message'] == "rock version was not found in manifest"
+    # The mock simulates fizz-buzz-1.13.666-1.rockspec
+    # was not added in the manifest properly. The patch_manifest_func
+    # returns an empty manifest. Testcase checks if the manifest is
+    # not being updated when patch_manifest_func returns an empty output.
+    response = put(rockspec, 'fizz-buzz-1.13.666-1.rockspec')
+    answer = json.loads(response.content)
     assert response.status_code == 400
-    assert list(S3Mock.instance.files.keys()) == ['manifest',
-        'cartridge-6.6.6-2.src.rock']
-
-    response = delete_empty()
-    answer = json.loads(response.content.decode('utf-8'))
-    assert answer['message'] == 'could not decode json form request'
-    assert response.status_code == 400
-
-    response = delete_non_json('cartridge-6.6.6-1.src.rock')
-    answer = json.loads(response.content.decode('utf-8'))
-    assert answer['message'] == 'Rocks server supports application/json only'
-    assert response.status_code == 400
+    assert answer.get('message') == None
+    assert list(S3Mock.instance.files.keys()) == ['manifest']
+    assert S3Mock.instance.files['manifest'].decode('utf-8') == dedent("""\
+            commands = {}
+            modules = {}
+            repository = {}
+        """)
