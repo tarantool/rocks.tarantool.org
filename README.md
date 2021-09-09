@@ -13,14 +13,6 @@ curl --fail \
   -X PUT -F "rockspec=@mymodule-scm-1.src.rock"
 ```
 
-and delete it
-```bash
-curl --fail \
-  -u $ROCKS_AUTH https://rocks.tarantool.org \
-  -H "Content-Type: application/json" \
-  -X DELETE -d '{"file_name":"mymodule-scm-1.src.rock"}'
-```
-
 ## Github Actions integration
 
 To use this action one must set the `ROCKS_AUTH` secret in the

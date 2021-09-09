@@ -244,6 +244,8 @@ function(manifest, filename, rock_content, action)
             end
             if arch_exists == false then
                table.insert(result.repository[package][ver], { arch = arch })
+            elseif ver ~= 'scm-1' then
+               return 'the rock already exists', nil
             end
          end
          msg = 'rock entry was successfully added to manifest'
