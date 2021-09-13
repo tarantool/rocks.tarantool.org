@@ -1,6 +1,9 @@
+import hashlib
+import io
 import json
 import os
 import re
+from datetime import datetime
 from io import BytesIO
 
 import boto3
@@ -16,6 +19,7 @@ auth = HTTPBasicAuth()
 
 S3_URL = os.environ.get("S3_URL")
 S3_ROCKS_FOLDER = os.environ.get("S3_ROCKS_FOLDER", '')
+S3_AUDIT_FOLDER = os.environ.get("S3_AUDIT_FOLDER", S3_ROCKS_FOLDER)
 S3_ACCESS_KEY = os.environ.get("S3_ACCESS_KEY")
 S3_SECRET_KEY = os.environ.get("S3_SECRET_KEY")
 S3_REGION = os.environ.get("S3_REGION")
@@ -30,6 +34,14 @@ MANIFEST = 'manifest'
 MANIFEST_SCRIPT = 'make_manifest.lua'
 
 supported_files_pattern = re.compile(r'.*(.rockspec|.src.rock|.all.rock)$')
+
+
+def md5(f_obj):
+    hash_md5 = hashlib.md5()
+    f_obj.seek(0)
+    for chunk in iter(lambda: f_obj.read(4096), b""):
+        hash_md5.update(chunk)
+    return hash_md5.hexdigest()
 
 
 def int2byte(x):
@@ -105,12 +117,7 @@ patch_manifest_func = lua.eval(patch_manifest_script)
 
 
 def patch_manifest(manifest: str, filename: str, rock_content: str = '', action: str = 'add') -> tuple:
-    msg, manifest = patch_manifest_func(manifest, filename, rock_content, action)
-
-    if not manifest:
-        raise InvalidUsage(msg)
-
-    return msg, manifest
+    return patch_manifest_func(manifest, filename, rock_content, action)
 
 
 def file_name_is_valid(name):
@@ -153,11 +160,14 @@ class S3View(MethodView):
         file = request.files.get('rockspec')
 
         if not file:
-            raise InvalidUsage('package file was not found in request data')
+            msg = 'package file was not found in request data'
+            self.audit_log(msg)
+            raise InvalidUsage(msg)
 
         file_name = file.filename
         error = file_name_is_valid(file_name)
         if error:
+            self.audit_log(error)
             raise InvalidUsage(error)
 
         is_text = istextfile(file)
@@ -170,15 +180,25 @@ class S3View(MethodView):
                                                    rock_content=rockspec, action='add')
 
         if patched_manifest:
-
-            self.client.upload_fileobj(BytesIO(package), self.bucket, f'{S3_ROCKS_FOLDER}{file_name}')
-
-            self.client.upload_fileobj(BytesIO(str.encode(patched_manifest)), self.bucket, f'{S3_ROCKS_FOLDER}manifest')
+            self.upload_fileobj(BytesIO(package), file_name,
+                                f'put {file_name} - {message}')
+            self.upload_fileobj(BytesIO(str.encode(patched_manifest)),
+                                'manifest', 'update manifest')
+        else:
+            self.audit_log(f'manifest update error: {message}')
+            raise InvalidUsage(message)
 
         return response_message(message)
 
-    def get(self, path='/'):
+    def upload_fileobj(self, file_obj, file_path, message):
+        err = None
+        try:
+            self.client.upload_fileobj(file_obj, self.bucket, f'{S3_ROCKS_FOLDER}{file_path}')
+        except Exception as e:
+            err = str(e)
+        self.audit_log(f'Upload failure: {err} {message}' if err else message, file_obj)
 
+    def get(self, path='/'):
         if path == '/':
             return redirect(TARANTOOL_IO_REDIRECT_URL, code=301)
 
@@ -193,14 +213,17 @@ class S3View(MethodView):
         url = self.presign_get(path)
         return redirect(url)
 
-    def object_exists(self, filename):
+    def object_exists(self, filename, folder=None):
         if filename == '':
             return False
+
+        if folder is None:
+            folder = S3_ROCKS_FOLDER
 
         try:
             obj = self.client.get_object(
                 Bucket=self.bucket,
-                Key=f'{S3_ROCKS_FOLDER}{filename}'
+                Key=f'{folder}{filename}'
             )
         except botocore.exceptions.ClientError as ex:
             if ex.response['Error']['Code'] == 'NoSuchKey':
@@ -222,6 +245,29 @@ class S3View(MethodView):
         self.client.download_fileobj(self.bucket, f'{S3_ROCKS_FOLDER}manifest', manifest_io)
 
         return manifest_io.getvalue().decode('utf-8')
+
+    def audit_log(self, event: str, file_obj=None):
+        md5_hash = ''
+        if file_obj:
+            md5_hash = f' md5hash: {md5(file_obj)} |'
+        log_data = f'{datetime.now()} | {event} |{md5_hash} ' \
+                   f'{request.remote_addr} | {json.dumps(dict(request.headers))}\n'
+
+        audit_file_name = f'{datetime.today().strftime("%y-%m")}.log'
+        audit_file = BytesIO()
+
+        exists = self.object_exists(audit_file_name, S3_AUDIT_FOLDER)
+        if exists:
+            self.client.download_fileobj(self.bucket, f'{S3_AUDIT_FOLDER}{audit_file_name}', audit_file)
+
+        initial_size = audit_file.getbuffer().nbytes
+
+        audit_file.seek(0, io.SEEK_END)
+        audit_file.write(log_data.encode())
+        audit_file.seek(0)
+
+        if not exists or (exists and audit_file.getbuffer().nbytes > initial_size):
+            self.client.upload_fileobj(audit_file, self.bucket, f'{S3_AUDIT_FOLDER}{audit_file_name}')
 
 
 s3_view = S3View.as_view('s3_view')
