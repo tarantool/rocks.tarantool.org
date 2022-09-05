@@ -239,9 +239,11 @@ def test_brake_manifest(app):
     answer = json.loads(response.content)
     assert response.status_code == 400
     assert answer.get('message') == 'Some unexpected error'
-    assert list(S3Mock.instance.files.keys()) == ['manifest', 'fizz-buzz-scm-1.rockspec', '21-09.log']
 
     audit_file_name = f'{datetime.today().strftime("%y-%m")}.log'
+    assert list(sorted(S3Mock.instance.files.keys())) == \
+           list(sorted(['manifest', 'fizz-buzz-scm-1.rockspec', audit_file_name]))
+
     audit_log_list = S3Mock.instance.files[audit_file_name].decode('utf-8').strip().split('\n')
     audit_log_entry = audit_log_list[2]
     assert len(audit_log_list) == 3  # rock + manifest + error
