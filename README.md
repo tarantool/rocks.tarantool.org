@@ -35,7 +35,7 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/')
     steps:
       - uses: actions/checkout@v2
-      - uses: rosik/setup-tarantool@v1
+      - uses: tarantool/setup-tarantool@v1
         with:
           tarantool-version: '2.5'
 
