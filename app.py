@@ -41,6 +41,7 @@ def md5(f_obj):
     f_obj.seek(0)
     for chunk in iter(lambda: f_obj.read(4096), b""):
         hash_md5.update(chunk)
+    f_obj.seek(0)
     return hash_md5.hexdigest()
 
 
@@ -192,11 +193,12 @@ class S3View(MethodView):
 
     def upload_fileobj(self, file_obj, file_path, message):
         err = None
+        md5_hash = md5(file_obj)
         try:
             self.client.upload_fileobj(file_obj, self.bucket, f'{S3_ROCKS_FOLDER}{file_path}')
         except Exception as e:
             err = str(e)
-        self.audit_log(f'Upload failure: {err} {message}' if err else message, file_obj)
+        self.audit_log(f'Upload failure: {err} {message}' if err else message, md5_hash)
 
     def get(self, path='/'):
         if path == '/':
@@ -246,10 +248,9 @@ class S3View(MethodView):
 
         return manifest_io.getvalue().decode('utf-8')
 
-    def audit_log(self, event: str, file_obj=None):
-        md5_hash = ''
-        if file_obj:
-            md5_hash = f' md5hash: {md5(file_obj)} |'
+    def audit_log(self, event: str, md5_hash=''):
+        if md5_hash:
+            md5_hash = f' md5hash: {md5_hash} |'
         log_data = f'{datetime.now()} | {event} |{md5_hash} ' \
                    f'{request.remote_addr} | {json.dumps(dict(request.headers))}\n'
 
