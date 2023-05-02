@@ -1,5 +1,5 @@
 boto3==1.18.34
-Flask==2.2.2
+Flask==2.3.2
 Flask-HTTPAuth==4.7.0
 gunicorn==20.1.0
 lupa==1.10
